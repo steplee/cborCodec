@@ -19,11 +19,14 @@ base_dep = declare_dependency(
   include_directories: base_inc
   )
 
+cborCodec_dep = declare_dependency(
+  include_directories: [base_inc]
+  )
 
 executable('testParser',
   files('test/testParser.cc'),
-  dependencies: [base_dep])
+  dependencies: [base_dep, cborCodec_dep])
 
 executable('testEncoder',
   files('test/testEncoder.cc'),
-  dependencies: [base_dep])
+  dependencies: [base_dep, cborCodec_dep])
