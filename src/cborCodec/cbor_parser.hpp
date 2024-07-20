@@ -339,13 +339,13 @@ namespace cbor {
         assert(state.sequenceIdx <= state.len);
 
         if (state.mode == Mode::array or state.mode == Mode::map) {
-            printf(" - post_item [%d/%lu]\n", state.sequenceIdx, state.len);
+            cborPrintf(" - post_item [%d/%lu]\n", state.sequenceIdx, state.len);
             if (state.sequenceIdx == state.len) {
                 if (state.mode == Mode::array) advance(EndSizedArray {});
                 if (state.mode == Mode::map) advance(EndSizedMap {});
             }
         } else {
-            printf(" - post_item [scalar]\n", state.sequenceIdx, state.len);
+            cborPrintf(" - post_item [scalar]\n", state.sequenceIdx, state.len);
             assert(state.len == kInvalidLength);
         }
     }
@@ -424,7 +424,7 @@ namespace cbor {
         byte b              = strm.nextByte();
         byte majorType      = b >> 5;
         byte additionalInfo = b & 0b11111;
-        printf(" - parse_item() [stackDepth: %d] [curState: %s] [m %d | addInfo %d]\n", stateStack.size(),
+        cborPrintf(" - parse_item() [stackDepth: %d] [curState: %s] [m %d | addInfo %d]\n", stateStack.size(),
                stateStack.back().mode == Mode::array ? "array"
                : stateStack.back().mode == Mode::map ? "map"
                                                      : "root",
@@ -487,7 +487,7 @@ namespace cbor {
             assert(str_len > 0);
             const char* head = (const char*)strm.nextBytes(str_len);
             // vtor.visit_text_string(TextStringView{head, str_len});
-            // printf(" - Advance with text string view : \"%s\"\n", std::string{TextStringView{head, str_len}}.c_str());
+            // cborPrintf(" - Advance with text string view : \"%s\"\n", std::string{TextStringView{head, str_len}}.c_str());
             advance(TextStringView { head, str_len });
         }
 

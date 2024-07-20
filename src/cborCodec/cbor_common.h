@@ -5,6 +5,13 @@
 #include <string_view>
 #include <type_traits>
 
+#ifdef CBOR_CODEC_DEBUG
+#define cborPrintf(...) printf(__VA_ARGS__);
+#else
+#define cborPrintf(...) {}
+#endif
+
+
 namespace cbor {
 
         // WARNING: TEST THIS.
