@@ -201,11 +201,11 @@ namespace cbor {
 	// WARNING: Once again, we assume the host machine is little-endian.
 
 	void CborEncoder::push_typed_array(const float* vs, size_t len) {
-		push_pos_integer(0b110, uint64_t { 0b010'00000 | 0b11110 });
+		push_pos_integer(0b110, uint64_t { 0b010'00000 | 0b11101 });
 		push_value(reinterpret_cast<const uint8_t*>(vs), sizeof(float) * len);
 	}
 	void CborEncoder::push_typed_array(const double* vs, size_t len) {
-		push_pos_integer(0b110, uint64_t { 0b010'00000 | 0b11111 });
+		push_pos_integer(0b110, uint64_t { 0b010'00000 | 0b11110 });
 		push_value(reinterpret_cast<const uint8_t*>(vs), sizeof(double) * len);
 	}
 

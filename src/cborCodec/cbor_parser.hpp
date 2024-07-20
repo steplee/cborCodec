@@ -137,7 +137,7 @@ namespace cbor {
             assert(false);
         }
 
-        template <class It> inline void copyTo(It&& begin, It&& end) const {
+        template <class It> inline void copyTo(It begin, It end) const {
             int i = 0;
             while (begin != end) {
 
@@ -520,11 +520,13 @@ namespace cbor {
                 TypedArrayView::Type type;
                 if (floating and ll == 0)
                     assert(false && "invalid typed array type");
-                else if (floating and ll == 1)
+                else if (floating and ll == 0)
                     assert(false && "float16 not supported");
-                else if (floating and ll == 2)
-                    type = TypedArrayView::eFloat32;
                 else if (floating and ll == 3)
+                    assert(false && "float128 not supported");
+                else if (floating and ll == 1)
+                    type = TypedArrayView::eFloat32;
+                else if (floating and ll == 2)
                     type = TypedArrayView::eFloat64;
                 else if (ll == 0 and !signing)
                     type = TypedArrayView::eUInt8;
