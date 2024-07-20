@@ -568,11 +568,11 @@ namespace cbor {
                 assert(false && "half floats are not supported.");
             } else if (additionalInfo == 26) {
                 float v = strm.nextValue<float>();
-                // vtor.visit_float(v);
+				v = ntoh(v);
                 advance(v);
             } else if (additionalInfo == 27) {
                 double v = strm.nextValue<double>();
-                // vtor.visit_double(v);
+				v = ntoh(v);
                 advance(v);
             } else if (additionalInfo == 28 or additionalInfo == 29 or additionalInfo == 30) {
                 assert(false && "Not a valid code in Jul 2024");

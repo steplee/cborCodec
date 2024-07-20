@@ -32,31 +32,6 @@ namespace cbor {
 
 
 		/*
-        uint16_t hton(const uint16_t& v) {
-			return htons(v);
-		}
-        uint32_t hton(const uint32_t& v) {
-			return htonl(v);
-		}
-        uint64_t hton(const uint64_t& v) {
-			return htonll(v);
-		}
-
-        int16_t hton(const int16_t& v) {
-			const uint16_t& vv = *reinterpret_cast<const uint16_t*>(&v);
-			uint16_t vvv = htons(vv);
-			return *reinterpret_cast<int16_t*>(&vvv);
-		}
-        int32_t hton(const int32_t& v) {
-			const uint32_t& vv = *reinterpret_cast<const uint32_t*>(&v);
-			uint32_t vvv = htons(vv);
-			return *reinterpret_cast<int32_t*>(&vvv);
-		}
-        int64_t hton(const int64_t& v) {
-			const uint64_t& vv = *reinterpret_cast<const uint64_t*>(&v);
-			uint64_t vvv = htons(vv);
-			return *reinterpret_cast<int64_t*>(&vvv);
-		}
 		*/
 
 	}
@@ -191,10 +166,12 @@ namespace cbor {
 
 	void CborEncoder::push_value(float v) {
 		write(byte{(0b111 << 5) | 26});
+		v = hton(v);
 		write(v);
 	}
 	void CborEncoder::push_value(double v) {
 		write(byte{(0b111 << 5) | 27});
+		v = hton(v);
 		write(v);
 	}
 

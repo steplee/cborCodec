@@ -11,7 +11,7 @@ void check_encoder() {
 
 	e.push_value(uint64_t{1});
 	e.push_value(uint64_t{30});
-	e.push_value(0.f);
+	e.push_value(.5f);
 
 	e.begin_array(1);
 	e.push_value(uint64_t{1});
@@ -54,6 +54,8 @@ struct MyVisitor {
 	inline void visit_value(Mode mode, size_t seqIdx, T&& t) {
 		printDepth();
 		if constexpr (std::is_integral_v<T>) printf("val: %ld\n", (int64_t)t);
+		else if constexpr (std::is_same_v<T,float>) printf("val: %f\n", (float)t);
+		else if constexpr (std::is_same_v<T,double>) printf("val: %lf\n", (double)t);
 		else if constexpr (std::is_same_v<T, TextStringView>) printf("val: %s\n", std::string{t}.c_str());
 		else if constexpr (std::is_same_v<T, ByteStringView>) printf("bytes of size %ld\n", t.size());
 		else if constexpr (std::is_same_v<T, TypedArrayView>) {
@@ -117,7 +119,7 @@ void check_codec() {
 
 	e.push_value(uint64_t{1});
 	e.push_value(uint64_t{30});
-	e.push_value(0.f);
+	e.push_value(9990.5f);
 
 	e.begin_array(1);
 	e.push_value(uint64_t{1});
