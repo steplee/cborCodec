@@ -181,22 +181,24 @@ namespace cbor {
             }
         };
 
-        struct BinStream_Span {
-            inline BinStream_Span(const uint8_t* data, size_t len)
+        struct BinStreamBuffer {
+            inline BinStreamBuffer(const uint8_t* data, size_t len)
                 : data(data)
                 , len(len) {
             }
 
             const uint8_t* data;
             size_t len;
-            size_t cursor = 0;
+            size_t cursor_ = 0;
+
+			inline size_t cursor() const { return cursor_; }
 
             inline bool hasMore(size_t n = 1) const {
-                return cursor + n <= len;
+                return cursor_ + n <= len;
             }
             inline uint8_t nextByte() {
                 assert(hasMore());
-                return data[cursor++];
+                return data[cursor_++];
             }
             template <class V> inline V nextValue() {
                 auto out = nextBytes(sizeof(V));
@@ -204,8 +206,8 @@ namespace cbor {
             }
             inline const uint8_t* nextBytes(size_t n) {
                 assert(hasMore(n));
-                auto out = data + cursor;
-                cursor += n;
+                auto out = data + cursor_;
+                cursor_ += n;
                 return out;
             }
         };
@@ -221,7 +223,7 @@ namespace cbor {
         //
         // Use a deque so that we can push/pop new/old blocks with finer granularity. Imagine we just used one block
         // and we read 5 bytes which pushed us over the 16M buffer size. Then _all_ references would immediately be broken.
-        // But by using multiple blocks -- this is helped because we only invalidate smaller+older regions.
+        // But by using multiple blocks, this is helped because we only invalidate smaller+older regions.
         //
         struct Buffer {
             static constexpr size_t blockSize = 4 * (1 << 20); // 4M
@@ -235,6 +237,7 @@ namespace cbor {
             }
 
             inline void pushNewBlock() {
+				// printf(" - Push new block!\n");
                 std::vector<uint8_t> block(blockSize);
                 if (blocks.size() >= maxBlocks) blocks.pop_front();
                 blocks.push_back(std::move(block));
@@ -255,11 +258,13 @@ namespace cbor {
             }
         };
 
-        struct BinStream_File {
+        struct BinStreamFile {
 
-            inline BinStream_File(std::ifstream& ifs)
+            inline BinStreamFile(std::ifstream& ifs)
                 : ifs(ifs) {
             }
+
+			inline size_t cursor() const { return ifs.tellg(); }
 
             inline bool hasMore() const {
                 return !ifs.eof();
@@ -288,16 +293,17 @@ namespace cbor {
 
     }
 
-    template <class Visitor> class CborParser {
+    template <class InStream, class Visitor> class CborParser {
 
     public:
-        CborParser(Visitor& vtor, const uint8_t* data, size_t len);
+        // CborParser(Visitor& vtor, const uint8_t* data, size_t len);
+        CborParser(Visitor& vtor, InStream&& strm);
 
         void parse();
 
     private:
         inline void pushState(const Mode& mode, size_t len = kInvalidLength) {
-            stateStack.push_back(State { mode, strm.cursor, 0, len });
+            stateStack.push_back(State { mode, strm.cursor(), 0, len });
         }
 
         template <class V> void advance(V&& value);
@@ -317,49 +323,58 @@ namespace cbor {
         // TextStringView parse_text_string();
 
         Visitor& vtor;
-        BinStream_Span strm;
+        InStream strm;
         // const uint8_t *data;
         // size_t len;
 
         std::vector<State> stateStack;
     };
 
-    template <class Visitor>
-    CborParser<Visitor>::CborParser(Visitor& vtor, const uint8_t* data, size_t len)
+    template <class InStream, class Visitor>
+    // CborParser<InStream,Visitor>::CborParser(Visitor& vtor, const uint8_t* data, size_t len)
+    CborParser<InStream,Visitor>::CborParser(Visitor& vtor, InStream&& strm_)
         // : vtor(vtor), data(data), len(len)
         : vtor(vtor)
-        , strm(data, len) {
+        , strm(std::move(strm_)) {
     }
 
-    template <class Visitor> void CborParser<Visitor>::post_item() {
+    template <class InStream, class Visitor> void CborParser<InStream,Visitor>::post_item() {
         auto& state = stateStack.back();
 
         state.sequenceIdx++;
 
+        // printf(" - post_item [%d/%lu] %5.2lf%\n", state.sequenceIdx, state.len, 100.*((double)strm.cursor) / strm.len);
+
         assert(state.sequenceIdx <= state.len);
 
         if (state.mode == Mode::array or state.mode == Mode::map) {
-            cborPrintf(" - post_item [%d/%lu]\n", state.sequenceIdx, state.len);
+            // cborPrintf(" - post_item [%d/%lu]\n", state.sequenceIdx, state.len);
             if (state.sequenceIdx == state.len) {
                 if (state.mode == Mode::array) advance(EndSizedArray {});
                 if (state.mode == Mode::map) advance(EndSizedMap {});
             }
         } else {
-            cborPrintf(" - post_item [scalar]\n", state.sequenceIdx, state.len);
+            // cborPrintf(" - post_item [scalar]\n", state.sequenceIdx, state.len);
             assert(state.len == kInvalidLength);
         }
     }
 
-    template <class Visitor> template <class V> void CborParser<Visitor>::advance(V&& value) {
+    template <class InStream, class Visitor> template <class V> void CborParser<InStream,Visitor>::advance(V&& value) {
 
         if constexpr (std::is_same_v<V, BeginArray>) {
-            stateStack.push_back(State { Mode::array, strm.cursor, 0, value.len });
+            stateStack.push_back(State { Mode::array, strm.cursor(), 0, value.len });
             vtor.visit_begin_array();
+
+			if (value.len == 0)
+				advance(EndSizedArray{});
         }
 
         else if constexpr (std::is_same_v<V, BeginMap>) {
-            stateStack.push_back(State { Mode::map, strm.cursor, 0, value.len });
+            stateStack.push_back(State { Mode::map, strm.cursor(), 0, value.len });
             vtor.visit_begin_map();
+			
+			if (value.len == 0)
+				advance(EndSizedMap{});
         }
 
         else if constexpr (std::is_same_v<V, EndIndefiniteArray>) {
@@ -420,7 +435,7 @@ namespace cbor {
         }
     }
 
-    template <class Visitor> void CborParser<Visitor>::parse_item() {
+    template <class InStream, class Visitor> void CborParser<InStream,Visitor>::parse_item() {
         byte b              = strm.nextByte();
         byte majorType      = b >> 5;
         byte additionalInfo = b & 0b11111;
@@ -436,13 +451,13 @@ namespace cbor {
             } else if (additionalInfo >= 24 and additionalInfo <= 27) {
                 size_t v;
                 if (additionalInfo == 24)
-                    v = (strm.nextValue<uint8_t>());
+                    v = (strm.template nextValue<uint8_t>());
                 else if (additionalInfo == 25)
-                    v = ntohs(strm.nextValue<uint16_t>());
+                    v = ntohs(strm.template nextValue<uint16_t>());
                 else if (additionalInfo == 26)
-                    v = ntohl(strm.nextValue<uint32_t>());
+                    v = ntohl(strm.template nextValue<uint32_t>());
                 else if (additionalInfo == 27)
-                    v = ntohll(strm.nextValue<uint64_t>());
+                    v = ntohll(strm.template nextValue<uint64_t>());
                 return v;
             } else if (additionalInfo >= 28 and additionalInfo <= 30) {
                 assert(false);
@@ -473,7 +488,7 @@ namespace cbor {
             if (str_len == kIndefiniteLength) {
                 throw std::runtime_error("Indefinite length strings are NOT supported by this decoder.");
             }
-            assert(str_len > 0);
+            // assert(str_len > 0);
             const byte* head = strm.nextBytes(str_len);
             // vtor.visit_byte_string(ByteStringView{head, str_len});
             advance(ByteStringView { head, str_len });
@@ -484,7 +499,7 @@ namespace cbor {
             if (str_len == kIndefiniteLength) {
                 throw std::runtime_error("Indefinite length strings are NOT supported by this decoder.");
             }
-            assert(str_len > 0);
+            // assert(str_len > 0);
             const char* head = (const char*)strm.nextBytes(str_len);
             // vtor.visit_text_string(TextStringView{head, str_len});
             // cborPrintf(" - Advance with text string view : \"%s\"\n", std::string{TextStringView{head, str_len}}.c_str());
@@ -569,22 +584,24 @@ namespace cbor {
             } else if (additionalInfo == 25) {
                 assert(false && "half floats are not supported.");
             } else if (additionalInfo == 26) {
-                float v = strm.nextValue<float>();
+                float v = strm.template nextValue<float>();
 				v = ntoh(v);
                 advance(v);
             } else if (additionalInfo == 27) {
-                double v = strm.nextValue<double>();
+                double v = strm.template nextValue<double>();
 				v = ntoh(v);
                 advance(v);
             } else if (additionalInfo == 28 or additionalInfo == 29 or additionalInfo == 30) {
                 assert(false && "Not a valid code in Jul 2024");
             } else if (additionalInfo == 31) {
                 if (stateStack.back().mode == Mode::array) {
+					printf(" - end indef array\n");
                     // vtor.visit_end_array();
                     // stateStack.pop_back();
                     // advance();
                     advance(EndIndefiniteArray {});
                 } else if (stateStack.back().mode == Mode::map) {
+					printf(" - end indef map\n");
                     // vtor.visit_end_map();
                     // stateStack.pop_back();
                     // advance();
@@ -599,7 +616,7 @@ namespace cbor {
         }
     }
 
-    template <class Visitor> void CborParser<Visitor>::parse() {
+    template <class InStream, class Visitor> void CborParser<InStream,Visitor>::parse() {
         assert(stateStack.empty());
         pushState(Mode::root);
         parse_root();
@@ -608,27 +625,21 @@ namespace cbor {
         while (stateStack.size() > 1) { post_item(); }
     }
 
-    template <class Visitor> void CborParser<Visitor>::parse_root() {
+    template <class InStream, class Visitor> void CborParser<InStream,Visitor>::parse_root() {
         while (strm.hasMore()) parse_item();
     }
 
-    /*
-    template <class Visitor>
-    uint64_t CborParser<Visitor>::parse_uint() {
-            throw std::runtime_error("todo");
-    }
-    template <class Visitor>
-    int64_t CborParser<Visitor>::parse_nint() {
-            throw std::runtime_error("todo");
-    }
-    template <class Visitor>
-    ByteString CborParser<Visitor>::parse_byte_string() {
-            throw std::runtime_error("todo");
-    }
-    template <class Visitor>
-    std::string_view CborParser<Visitor>::parse_text_string() {
-            throw std::runtime_error("todo");
-    }
-    */
+
+
+
+
+
+
+
+
+	template <class Visitor>
+	using BufferCborParser = CborParser<BinStreamBuffer, Visitor>;
+	template <class Visitor>
+	using FileCborParser = CborParser<BinStreamFile, Visitor>;
 
 }

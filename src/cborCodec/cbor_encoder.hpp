@@ -29,11 +29,6 @@
 namespace cbor {
 
     namespace {
-
-
-		/*
-		*/
-
 	}
 
 
@@ -52,7 +47,7 @@ namespace cbor {
 			cursor += len;
 		}
 
-		std::vector<uint8_t>&& finish() {
+		inline std::vector<uint8_t> finish() {
 			data.resize(cursor);
 			return std::move(data);
 		}
@@ -62,6 +57,10 @@ namespace cbor {
 
 	struct CborEncoder {
 		OutBinStream_Vector strm;
+
+		inline std::vector<uint8_t> finish() {
+			return strm.finish();
+		}
 
 		/*
 		template<class T>
@@ -95,7 +94,7 @@ namespace cbor {
 		void push_value(const uint8_t* bytes, size_t len);
 
 		void begin_array(size_t size);
-		void begin_map(size_t size);
+		void begin_map(size_t sizeInPairs);
 		void end_indefinite();
 
 		void push_typed_array(const float* vs, size_t len);

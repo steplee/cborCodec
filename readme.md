@@ -9,3 +9,13 @@ The API for the decoder is based on the visitor pattern. The API is intended to 
 jsoncons seemed to use virtual functions and a few layers of abstractions -- which is great for it as it attempts to implement multiple JSON-like formats. However to make decoding and encoding as stream-lined as possible, this library implements code in the header and does so with no virtual functions and really only one intermediate layer of abstraction.
 
 Benchmarks and more tests to follow...
+
+### Status
+###### TODO
+ - [ ] Add file-output-stream support for `CborEncoder` by having it take another template param.
+ - [x] Test against large json file
+ - [ ] Test encode/parse large hand-crafted cbor file with byte strings.
+ - [ ] Test encode/parse large hand-crafted cbor file typed arrays.
+ - [ ] Test large hand-crafted cbor file with lots of nested indefinite sized collections.
+ - [ ] Benchmark against jsoncons and nlohmann::json.
+ - [ ] Write some more example `Visitor`s to demonstrate how use the parser. For now the `ToJsonVisitor` is a good reference.
