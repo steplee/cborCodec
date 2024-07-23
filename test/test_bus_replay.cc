@@ -113,10 +113,28 @@ namespace {
 		MessageTag curMsgTag = MessageTag::eEnd;
 		int curMsgDepthBegin = -1;
 
+		bool didStartMsgs;
+		bool didEndMsgs;
+		int msgStartDepth; // if we ever return past this after `didStartMsgs`, set `didEndMsgs` to false.
+		bool inMsgs() const {
+			return didStartMsgs and !didEndMsgs;
+		}
+
 		public:
 
 		template <class T>
-		inline void visit_value(State state, size_t seqIdx, T&& t) {
+		inline void visit_value(State state, T&& t) {
+
+			int seq = state.sequenceIdx;
+			int depth = state.depth;
+			auto mode = state.mode;
+
+			if constexpr (std::is_same_v<T, BeginMap>) {
+			} else if constexpr (std::is_same_v<T, BeginArray>) {
+			} else if constexpr (std::is_same_v<T, EndMap>) {
+			} else if constexpr (std::is_same_v<T, EndArray>) {
+			}
+
 		}
 
 

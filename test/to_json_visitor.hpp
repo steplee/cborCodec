@@ -24,15 +24,16 @@ struct ToJsonVisitor {
 	}
 
 	template <class T>
-	inline void visit_value(State state, size_t seqIdx, T&& t) {
+	inline void visit_value(State state, T&& t) {
 		auto mode = state.mode;
+		int seqIdx = state.sequenceIdx;
 
 		if (os.size() + 32 > os.capacity()) {
 			os.reserve(os.capacity() * 2);
 		}
 
-		if ((mode == Mode::root or mode == Mode::array) and seqIdx > 0) {
-			os += ",";
+		if ((mode == Mode::root or mode == Mode::array) and seqIdx > 0 and (!std::is_same_v<T,BeginMap> and !std::is_same_v<T,BeginArray>)) {
+			// os += ",";
 		}
 		if ((mode == Mode::map) and seqIdx > 0 and seqIdx % 2 == 0) {
 			if (os.back() != ',')
@@ -81,6 +82,25 @@ struct ToJsonVisitor {
 		else if constexpr (std::is_same_v<T, Null>) {
 			os += "null";
 		}
+
+
+
+		else if constexpr (std::is_same_v<T, BeginMap>) {
+			if (os.back() != ':' and os.back() != ',' and os.back() != '[' and os.back() != '{') os += ",";
+			os += "{";
+		} else if constexpr (std::is_same_v<T, BeginArray>) {
+			if (os.back() != ':' and os.back() != ',' and os.back() != '[' and os.back() != '{') os += ",";
+			os += "[";
+		} else if constexpr (std::is_same_v<T, EndMap>) {
+		if (os.back() == ',') os.pop_back();
+			os += "}";
+		} else if constexpr (std::is_same_v<T, EndArray>) {
+		if (os.back() == ',') os.pop_back();
+			os += "]";
+		}
+
+
+
 		else if constexpr (std::is_same_v<T, TypedArrayView>) {
 			if (t.type == TypedArrayView::eInt32) {
 				// printf("typed int32 array of size %ld, endian: %d:\n", t.elementLength(), t.endianness);
@@ -107,10 +127,10 @@ struct ToJsonVisitor {
 			// throw std::runtime_error("Unhandled in ToJsonVisitor::visit_value");
 		}
 
-		if ((mode == Mode::map) and seqIdx % 2 == 1 and seqIdx > 0) {
+		if ((mode == Mode::map) and seqIdx % 2 == 1 and seqIdx > 0 and (!std::is_same_v<T,BeginMap> and !std::is_same_v<T,BeginArray>)) {
 			os += ",";
 		}
-		if ((mode == Mode::map) and seqIdx % 2 == 0) {
+		if ((mode == Mode::map) and seqIdx % 2 == 0 and (!std::is_same_v<T,BeginMap> and !std::is_same_v<T,BeginArray> and !std::is_same_v<T,EndMap> and !std::is_same_v<T,EndArray>)) {
 			os += ":";
 		}
 
@@ -120,9 +140,9 @@ struct ToJsonVisitor {
 	// TODO: This is hacky. I should provide mode/seqIdx also here!
 	//
 
+	/*
 	inline void visit_begin_array() {
-		if (os.back() != ':' and os.back() != ',' and os.back() != '[' and os.back() != '{')
-			os += ",";
+		if (os.back() != ':' and os.back() != ',' and os.back() != '[' and os.back() != '{') os += ",";
 
 		os += "[";
 	}
@@ -132,8 +152,7 @@ struct ToJsonVisitor {
 	}
 
 	inline void visit_begin_map() {
-		if (os.back() != ':' and os.back() != ',' and os.back() != '[' and os.back() != '{')
-			os += ",";
+		if (os.back() != ':' and os.back() != ',' and os.back() != '[' and os.back() != '{') os += ",";
 
 		os += "{";
 	}
@@ -142,6 +161,7 @@ struct ToJsonVisitor {
 		os += "}";
 	}
 
+	*/
 	inline std::string finish() {
 		os += "]";
 		return os;

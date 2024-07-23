@@ -355,8 +355,8 @@ namespace cbor {
         if (state.mode == Mode::array or state.mode == Mode::map) {
             // cborPrintf(" - post_item [%d/%lu]\n", state.sequenceIdx, state.len);
             if (state.sequenceIdx == state.len) {
-                if (state.mode == Mode::array) advance(EndSizedArray {});
-                if (state.mode == Mode::map) advance(EndSizedMap {});
+                if (state.mode == Mode::array) advance(EndArray {});
+                if (state.mode == Mode::map) advance(EndMap {});
             }
         } else {
             // cborPrintf(" - post_item [scalar]\n", state.sequenceIdx, state.len);
@@ -366,20 +366,40 @@ namespace cbor {
 
     template <class InStream, class Visitor> template <class V> void CborParser<InStream,Visitor>::advance(V&& value) {
 
+		//
+		// NOTE: Carefully notice that we visit a begin BEFORE pushing onto stack, but we also visit an end BEFORE popping it from stack.
+		//
+
         if constexpr (std::is_same_v<V, BeginArray>) {
+			vtor.visit_value(stateStack.back(), std::move(value));
             stateStack.push_back(State { Mode::array, strm.cursor(), 0, value.len, stateStack.size() });
-            vtor.visit_begin_array();
 
 			if (value.len == 0)
-				advance(EndSizedArray{});
+				advance(EndArray{});
         }
 
         else if constexpr (std::is_same_v<V, BeginMap>) {
+			vtor.visit_value(stateStack.back(), std::move(value));
             stateStack.push_back(State { Mode::map, strm.cursor(), 0, value.len, stateStack.size() });
-            vtor.visit_begin_map();
 			
 			if (value.len == 0)
-				advance(EndSizedMap{});
+				advance(EndMap{});
+        }
+
+        else if constexpr (std::is_same_v<V, EndArray>) {
+            assert(stateStack.back().mode == Mode::array);
+			vtor.visit_value(stateStack.back(), std::move(value));
+            assert(stateStack.back().len == kIndefiniteLength or stateStack.back().len == stateStack.back().sequenceIdx);
+            stateStack.pop_back();
+            post_item();
+        }
+
+        else if constexpr (std::is_same_v<V, EndMap>) {
+            assert(stateStack.back().mode == Mode::map);
+			vtor.visit_value(stateStack.back(), std::move(value));
+            assert(stateStack.back().len == kIndefiniteLength or stateStack.back().len == stateStack.back().sequenceIdx);
+            stateStack.pop_back();
+            post_item();
         }
 
 		/*
@@ -416,21 +436,6 @@ namespace cbor {
         }
 		*/
 
-        else if constexpr (std::is_same_v<V, EndArray>) {
-            assert(stateStack.back().mode == Mode::array);
-            assert(stateStack.back.len() == kIndefiniteLength or stateStack.back().len == stateStack.back().sequenceIdx);
-            stateStack.pop_back();
-            vtor.visit_end_array();
-            post_item();
-        }
-
-        else if constexpr (std::is_same_v<V, EndMap>) {
-            assert(stateStack.back().mode == Mode::map);
-            assert(stateStack.back.len() == kIndefiniteLength or stateStack.back().len == stateStack.back().sequenceIdx);
-            stateStack.pop_back();
-            vtor.visit_end_map();
-            post_item();
-        }
 
         else {
 
@@ -453,7 +458,7 @@ namespace cbor {
             */
 
             auto& state = stateStack.back();
-            vtor.visit_value(state, state.sequenceIdx, std::move(value));
+            vtor.visit_value(stateStack.back(), std::move(value));
             post_item();
         }
     }
@@ -626,13 +631,13 @@ namespace cbor {
                     // vtor.visit_end_array();
                     // stateStack.pop_back();
                     // advance();
-                    advance(EndIndefiniteArray {});
+                    advance(EndArray {});
                 } else if (stateStack.back().mode == Mode::map) {
 					printf(" - end indef map\n");
                     // vtor.visit_end_map();
                     // stateStack.pop_back();
                     // advance();
-                    advance(EndIndefiniteMap {});
+                    advance(EndMap {});
                 } else {
                     assert(false && "expected indef length thing.");
                 }
