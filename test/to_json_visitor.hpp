@@ -24,7 +24,8 @@ struct ToJsonVisitor {
 	}
 
 	template <class T>
-	inline void visit_value(Mode mode, size_t seqIdx, T&& t) {
+	inline void visit_value(State state, size_t seqIdx, T&& t) {
+		auto mode = state.mode;
 
 		if (os.size() + 32 > os.capacity()) {
 			os.reserve(os.capacity() * 2);
@@ -33,12 +34,52 @@ struct ToJsonVisitor {
 		if ((mode == Mode::root or mode == Mode::array) and seqIdx > 0) {
 			os += ",";
 		}
+		if ((mode == Mode::map) and seqIdx > 0 and seqIdx % 2 == 0) {
+			if (os.back() != ',')
+				os += ",";
+		}
 
 		if constexpr (std::is_same_v<T, TextStringView>) {
-			os += "\"" + std::string(t) + "\"";
+			std::string tt;
+			tt.reserve(t.size());
+			char prev = 0;
+			for (int i=0; i<t.size(); i++) {
+				if (t[i] == '\r') {
+					tt.push_back('\\');
+					tt.push_back('r');
+				} else if (t[i] == '\n') {
+					tt.push_back('\\');
+					tt.push_back('n');
+				} else if (t[i] == '\f') {
+					tt.push_back('\\');
+					tt.push_back('f');
+				} else if (t[i] == '\b') {
+					tt.push_back('\\');
+					tt.push_back('b');
+				} else if (t[i] == '\\') {
+					tt.push_back('\\');
+					tt.push_back('\\');
+				} else if (t[i] == '\t') {
+					tt.push_back('\\');
+					tt.push_back('t');
+				} else if (t[i] < 0x1f) {
+					// skip.
+				} else
+					tt.push_back(t[i]);
+			}
+			os += "\"" + tt + "\"";
 		}
 		else if constexpr (std::is_same_v<T, ByteStringView>) {
 			throw std::runtime_error("Cannot have bytes in json.");
+		}
+		else if constexpr (std::is_same_v<T, True>) {
+			os += "true";
+		}
+		else if constexpr (std::is_same_v<T, False>) {
+			os += "false";
+		}
+		else if constexpr (std::is_same_v<T, Null>) {
+			os += "null";
 		}
 		else if constexpr (std::is_same_v<T, TypedArrayView>) {
 			if (t.type == TypedArrayView::eInt32) {
@@ -66,12 +107,13 @@ struct ToJsonVisitor {
 			// throw std::runtime_error("Unhandled in ToJsonVisitor::visit_value");
 		}
 
+		if ((mode == Mode::map) and seqIdx % 2 == 1 and seqIdx > 0) {
+			os += ",";
+		}
 		if ((mode == Mode::map) and seqIdx % 2 == 0) {
 			os += ":";
 		}
-		if ((mode == Mode::map) and seqIdx % 2 == 1) {
-			os += ",";
-		}
+
 	}
 
 	//

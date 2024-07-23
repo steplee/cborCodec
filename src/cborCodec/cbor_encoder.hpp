@@ -32,13 +32,16 @@ namespace cbor {
 	}
 
 
-	struct OutBinStream_Vector {
-
+	struct OutBinStreamBuffer {
 		std::vector<uint8_t> data;
 		size_t cursor = 0;
 
-		inline OutBinStream_Vector() {
-			data.resize(4096);
+		inline OutBinStreamBuffer() {
+			cursor = -1;
+		}
+		inline OutBinStreamBuffer(size_t size) {
+			data.resize(size);
+			cursor = 0;
 		}
 
 		inline void write(const uint8_t* bytes, size_t len) {
@@ -52,39 +55,69 @@ namespace cbor {
 			return std::move(data);
 		}
 
+		inline bool valid() const { return cursor != -1; }
+	};
 
+
+	struct OutBinStreamFile {
+		std::ofstream ofs;
+
+		inline OutBinStreamFile() {
+		}
+		inline OutBinStreamFile(const std::string &path) : ofs(path, std::ios_base::out | std::ios_base::binary) {
+		}
+		inline OutBinStreamFile(std::ofstream &&o) : ofs(std::move(o)) {
+		}
+
+		inline void write(const uint8_t* bytes, size_t len) {
+			ofs.write((const char*)bytes,len);
+		}
+
+		inline void finish() {
+			ofs.flush();
+		}
+
+		inline bool valid() const { return ofs.good(); }
 	};
 
 	struct CborEncoder {
-		OutBinStream_Vector strm;
+		private:
+
+		// Only one will be active.
+		// NOTE: This used to be templated, but it's simpler to support custom type encoders
+		//       by having it non-templated.
+		OutBinStreamBuffer strm1;
+		OutBinStreamFile strm2;
+
+		public:
+
+		inline CborEncoder(std::ofstream&& ofs) : strm2(std::move(ofs)) {}
+		inline CborEncoder(const std::string& path) : strm2(path) {}
+		inline CborEncoder() : strm1(1<<10) {}
 
 		inline std::vector<uint8_t> finish() {
-			return strm.finish();
+			if (strm1.valid()) return strm1.finish();
+			else strm2.finish();
+			return {};
 		}
 
-		/*
-		template<class T>
-		void push_value(const std::enable_if_t<std::is_integral_v<T>,T> s);
+		template <class K, class V>
+		inline void push_key_value(const K& k, const V& v) {
+			push_value(k);
+			push_value(v);
+		}
 
-		template<class T>
-		void push_value(const std::enable_if_t<std::is_floating_point_v<T>,T> s);
-		*/
-
-		/*
-		void push_value(int8_t v);
-		void push_value(int16_t v);
-		void push_value(int32_t v);
-		void push_value(int64_t v);
 		void push_value(uint8_t v);
-		void push_value(uint16_t v);
-		void push_value(uint32_t v);
-		void push_value(uint64_t v);
-		*/
 		void push_value(int64_t v);
 		void push_value(uint64_t v);
 
 		void push_value(float v);
 		void push_value(double v);
+
+
+		void push_value(True);
+		void push_value(False);
+		void push_value(Null);
 
 		// Text string.
 		void push_value(const std::string& s);
@@ -104,6 +137,16 @@ namespace cbor {
 		void push_typed_array(const int64_t* vs, size_t len);
 		void push_typed_array(const uint64_t* vs, size_t len);
 
+		template <typename Bool, typename T=std::enable_if_t<std::is_same<Bool, bool>{}>>
+		inline void push_value(Bool) {
+			assert(false && "Do not use push_value(bool). Use push_value(True) or push_value(False).");
+		}
+		
+		template <typename T, typename V=std::enable_if_t<std::is_member_function_pointer_v<decltype(&T::encodeCbor)>>>
+		inline void push_value(const T& t) {
+			t.encodeCbor(*this);
+		}
+
 		private:
 
 
@@ -113,14 +156,19 @@ namespace cbor {
 		template <class T>
 		inline void write(const T& t) {
 			static_assert(std::is_fundamental<T>::value, "bad write<T> call -- only primitives allowed.");
-			strm.write((const uint8_t*)&t, sizeof(T));
+			if (strm1.valid()) strm1.write((const uint8_t*)&t, sizeof(T));
+			else strm2.write((const uint8_t*)&t, sizeof(T));
 		}
 		inline void write(const uint8_t* d, size_t len) {
-			strm.write(d, len);
+			if (strm1.valid()) strm1.write(d, len);
+			else strm2.write(d, len);
 		}
 
 	};
 
+	inline void CborEncoder::push_value(uint8_t v) {
+		push_pos_integer(0b000, v);
+	}
 	inline void CborEncoder::push_value(int64_t v) {
 		if (v >= 0)
 			push_pos_integer(0b000, v);
@@ -163,64 +211,74 @@ namespace cbor {
 		push_pos_integer(majorType, v);
 	}
 
-	void CborEncoder::push_value(float v) {
+	inline void CborEncoder::push_value(False v) {
+		write(byte{(0b111 << 5) | 20});
+	}
+	inline void CborEncoder::push_value(True v) {
+		write(byte{(0b111 << 5) | 21});
+	}
+	inline void CborEncoder::push_value(Null v) {
+		write(byte{(0b111 << 5) | 22});
+	}
+
+	inline void CborEncoder::push_value(float v) {
 		write(byte{(0b111 << 5) | 26});
 		v = hton(v);
 		write(v);
 	}
-	void CborEncoder::push_value(double v) {
+	inline void CborEncoder::push_value(double v) {
 		write(byte{(0b111 << 5) | 27});
 		v = hton(v);
 		write(v);
 	}
 
-	void CborEncoder::begin_array(size_t size) {
+	inline void CborEncoder::begin_array(size_t size) {
 		push_pos_integer(0b100, size);
 	}
-	void CborEncoder::begin_map(size_t size) {
+	inline void CborEncoder::begin_map(size_t size) {
 		push_pos_integer(0b101, size);
 	}
-	void CborEncoder::end_indefinite() {
+	inline void CborEncoder::end_indefinite() {
 		write(byte{0b111'11111});
 	}
 
-	void CborEncoder::push_value(const std::string& s) {
+	inline void CborEncoder::push_value(const std::string& s) {
 		push_pos_integer(0b011, s.length());
 		write((const uint8_t*)s.data(), s.length());
 	}
-	void CborEncoder::push_value(const char* s, size_t len) {
+	inline void CborEncoder::push_value(const char* s, size_t len) {
 		push_pos_integer(0b011, len);
 		write((const uint8_t*)s, len);
 	}
-	void CborEncoder::push_value(const uint8_t* s, size_t len) {
+	inline void CborEncoder::push_value(const uint8_t* s, size_t len) {
 		push_pos_integer(0b010, len);
 		write(s, len);
 	}
 
 	// WARNING: Once again, we assume the host machine is little-endian.
 
-	void CborEncoder::push_typed_array(const float* vs, size_t len) {
+	inline void CborEncoder::push_typed_array(const float* vs, size_t len) {
 		push_pos_integer(0b110, uint64_t { 0b010'00000 | 0b11101 });
 		push_value(reinterpret_cast<const uint8_t*>(vs), sizeof(float) * len);
 	}
-	void CborEncoder::push_typed_array(const double* vs, size_t len) {
+	inline void CborEncoder::push_typed_array(const double* vs, size_t len) {
 		push_pos_integer(0b110, uint64_t { 0b010'00000 | 0b11110 });
 		push_value(reinterpret_cast<const uint8_t*>(vs), sizeof(double) * len);
 	}
 
-	void CborEncoder::push_typed_array(const uint8_t* vs, size_t len) {
+	inline void CborEncoder::push_typed_array(const uint8_t* vs, size_t len) {
 		push_pos_integer(0b110, uint64_t { 0b010'00000 | 0b00100 }); // integral, unsigned, little-endian, size=8bit
 		push_value(reinterpret_cast<const uint8_t*>(vs), sizeof(uint8_t) * len);
 	}
-	void CborEncoder::push_typed_array(const int32_t* vs, size_t len) {
+	inline void CborEncoder::push_typed_array(const int32_t* vs, size_t len) {
 		push_pos_integer(0b110, uint64_t { 0b010'00000 | 0b01110 }); // integral, signed, little-endian, size=32bit
 		push_value(reinterpret_cast<const uint8_t*>(vs), sizeof(int32_t) * len);
 	}
-	void CborEncoder::push_typed_array(const int64_t* vs, size_t len) {
+	inline void CborEncoder::push_typed_array(const int64_t* vs, size_t len) {
 		push_pos_integer(0b110, uint64_t { 0b010'00000 | 0b01111 }); // integral, signed, little-endian, size=64bit
 		push_value(reinterpret_cast<const uint8_t*>(vs), sizeof(int64_t) * len);
 	}
-	void CborEncoder::push_typed_array(const uint64_t* vs, size_t len) {
+	inline void CborEncoder::push_typed_array(const uint64_t* vs, size_t len) {
 		push_pos_integer(0b110, uint64_t { 0b010'00000 | 0b00111 }); // integral, unsigned, little-endian, size=64bit
 		push_value(reinterpret_cast<const uint8_t*>(vs), sizeof(uint64_t) * len);
 	}

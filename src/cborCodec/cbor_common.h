@@ -22,6 +22,10 @@ namespace cbor {
     using TextStringView = std::basic_string_view<char>;
     using ByteStringView = std::basic_string_view<uint8_t>;
 
+	struct True {};
+	struct False {};
+	struct Null {};
+
 
 
 

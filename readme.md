@@ -11,11 +11,17 @@ jsoncons seemed to use virtual functions and a few layers of abstractions -- whi
 Benchmarks and more tests to follow...
 
 ### Status
-###### TODO
+##### TODO
+###### Features
  - [ ] Add file-output-stream support for `CborEncoder` by having it take another template param.
+ - [ ] Come up with a way to support parser combinators -- possibly requiring changing the API -- and add docs for it.
+ - [ ] Handle the "simple values" for `true`, `false`, and `null`.
+
+###### Tests & Docs
  - [x] Test against large json file
  - [ ] Test encode/parse large hand-crafted cbor file with byte strings.
  - [ ] Test encode/parse large hand-crafted cbor file typed arrays.
  - [ ] Test large hand-crafted cbor file with lots of nested indefinite sized collections.
+ - [ ] Test the endian swap functions on both little/big endian hosts. In fact they only work on little right now...
  - [ ] Benchmark against jsoncons and nlohmann::json.
  - [ ] Write some more example `Visitor`s to demonstrate how use the parser. For now the `ToJsonVisitor` is a good reference.

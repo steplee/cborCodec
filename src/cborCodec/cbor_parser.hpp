@@ -165,16 +165,21 @@ namespace cbor {
         struct BeginMap {
             size_t len;
         };
+		/*
         struct EndIndefiniteArray { };
         struct EndIndefiniteMap { };
         struct EndSizedArray { };
         struct EndSizedMap { };
+		*/
+        struct EndArray { };
+        struct EndMap { };
 
         struct State {
             Mode mode;
             size_t byteIdx;     // This is not update, it's frozen at start.
             size_t sequenceIdx; // This is updated *in-place*
             size_t len;         // If the mode is array or map, how many elements are there? (or kIndefiniteLength)
+			int depth = 0;
 
             inline bool operator==(const Mode& m) {
                 return mode == m;
@@ -260,11 +265,11 @@ namespace cbor {
 
         struct BinStreamFile {
 
-            inline BinStreamFile(std::ifstream& ifs)
-                : ifs(ifs) {
+            inline BinStreamFile(std::ifstream&& ifs)
+                : ifs(std::move(ifs)) {
             }
 
-			inline size_t cursor() const { return ifs.tellg(); }
+			inline size_t cursor() { return ifs.tellg(); }
 
             inline bool hasMore() const {
                 return !ifs.eof();
@@ -288,7 +293,7 @@ namespace cbor {
             }
 
             Buffer buf;
-            std::ifstream& ifs;
+            std::ifstream ifs;
         };
 
     }
@@ -303,7 +308,7 @@ namespace cbor {
 
     private:
         inline void pushState(const Mode& mode, size_t len = kInvalidLength) {
-            stateStack.push_back(State { mode, strm.cursor(), 0, len });
+            stateStack.push_back(State { mode, strm.cursor(), 0, len, stateStack.size() });
         }
 
         template <class V> void advance(V&& value);
@@ -362,7 +367,7 @@ namespace cbor {
     template <class InStream, class Visitor> template <class V> void CborParser<InStream,Visitor>::advance(V&& value) {
 
         if constexpr (std::is_same_v<V, BeginArray>) {
-            stateStack.push_back(State { Mode::array, strm.cursor(), 0, value.len });
+            stateStack.push_back(State { Mode::array, strm.cursor(), 0, value.len, stateStack.size() });
             vtor.visit_begin_array();
 
 			if (value.len == 0)
@@ -370,13 +375,14 @@ namespace cbor {
         }
 
         else if constexpr (std::is_same_v<V, BeginMap>) {
-            stateStack.push_back(State { Mode::map, strm.cursor(), 0, value.len });
+            stateStack.push_back(State { Mode::map, strm.cursor(), 0, value.len, stateStack.size() });
             vtor.visit_begin_map();
 			
 			if (value.len == 0)
 				advance(EndSizedMap{});
         }
 
+		/*
         else if constexpr (std::is_same_v<V, EndIndefiniteArray>) {
             assert(stateStack.back().mode == Mode::array);
             assert(stateStack.back().len == kIndefiniteLength);
@@ -408,6 +414,23 @@ namespace cbor {
             vtor.visit_end_map();
             post_item();
         }
+		*/
+
+        else if constexpr (std::is_same_v<V, EndArray>) {
+            assert(stateStack.back().mode == Mode::array);
+            assert(stateStack.back.len() == kIndefiniteLength or stateStack.back().len == stateStack.back().sequenceIdx);
+            stateStack.pop_back();
+            vtor.visit_end_array();
+            post_item();
+        }
+
+        else if constexpr (std::is_same_v<V, EndMap>) {
+            assert(stateStack.back().mode == Mode::map);
+            assert(stateStack.back.len() == kIndefiniteLength or stateStack.back().len == stateStack.back().sequenceIdx);
+            stateStack.pop_back();
+            vtor.visit_end_map();
+            post_item();
+        }
 
         else {
 
@@ -430,7 +453,7 @@ namespace cbor {
             */
 
             auto& state = stateStack.back();
-            vtor.visit_value(state.mode, state.sequenceIdx, std::move(value));
+            vtor.visit_value(state, state.sequenceIdx, std::move(value));
             post_item();
         }
     }
@@ -574,12 +597,16 @@ namespace cbor {
         }
 
         else if (majorType == 7) {
-            if (additionalInfo < 24) {
-                // vtor.visit_simple_value(additionalInfo);
+            if (additionalInfo == 20) {
+                advance(False{});
+			} else if (additionalInfo == 21) {
+                advance(True{});
+			} else if (additionalInfo == 22) {
+                advance(Null{});
+			} else if (additionalInfo < 24) {
                 advance(additionalInfo);
             } else if (additionalInfo == 24) {
                 byte sval = strm.nextByte();
-                // vtor.visit_simple_value(sval);
                 advance(sval);
             } else if (additionalInfo == 25) {
                 assert(false && "half floats are not supported.");
