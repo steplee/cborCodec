@@ -5,10 +5,8 @@
 
 #include <fstream>
 
-#include "cborCodec/cbor_parser.hpp"
 #include "cborCodec/cbor_encoder.hpp"
-
-#include "to_json_visitor.hpp"
+#include "json_printer.hpp"
 
 
 TEST(EncoderParser, TestCodeDecodeSimple) {
@@ -39,12 +37,11 @@ TEST(EncoderParser, TestCodeDecodeSimple) {
 
 
 	{
-		ToJsonVisitor v;
-		BufferCborParser<ToJsonVisitor> p(v, BinStreamBuffer{data.data(), data.size()});
-		p.parse();
+		OnlineCborParser p(BinStreamBuffer{data.data(), data.size()});
+		JsonPrinter jp(p);
 
 		// std::cout << " - json:\n" << v.finish() << "\n";
-		EXPECT_EQ(v.finish(),
+		EXPECT_EQ(jp.os,
 			R"([{"key0":"val0","key1":"val1","key2":1,"key3":-10000000,"key4":[[["deep string"]]]}])"
 		);
 	}

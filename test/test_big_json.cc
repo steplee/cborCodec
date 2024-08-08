@@ -2,7 +2,7 @@
 
 #include <fstream>
 
-#include "to_json_visitor.hpp"
+#include "json_printer.hpp"
 #include "timing.hpp"
 
 // NOTE: You must run `python3 -m pysrc.getTestData` PRIOR to running this test.
@@ -45,8 +45,6 @@ bool files_are_same(const std::string& pathA, const std::string& pathB) {
 //        But they do test that we can parse a big cbor file correctly.
 
 TEST(Parser, BigJson_BufferInput) {
-
-
 	std::string cborInputPath = "/tmp/big.cbor";
 	std::string cborOutputPath = "/tmp/big.fromCbor.buffer.json";
 
@@ -54,41 +52,16 @@ TEST(Parser, BigJson_BufferInput) {
 	auto data = read_file_bytes(cborInputPath);
 	std::ofstream ofs(cborOutputPath);
 
-	std::cout << " - input size: " << data.size() << "\n";
-
-	ToJsonVisitor v;
+	std::cout << " - input size: " << static_cast<double>(data.size()) / (1<<20) << "MB\n";
 
 	auto t1 = getMicros();
-	BufferCborParser<ToJsonVisitor> p(v, BinStreamBuffer{data.data(), data.size()});
-	p.parse();
+	OnlineCborParser p(BinStreamBuffer{data.data(), data.size()});
+	JsonPrinter jp(p);
 	auto t2 = getMicros();
 
 	std::cout << " - [buffer input] 'big.cbor' parse took: " << (t2-t1) * 1e-3 << "ms\n";
 	std::cout << " - [buffer input] 'big.cbor' parse took including read: " << (t2-t0) * 1e-3 << "ms\n";
 
-	ofs << v.finish();
+	ofs << jp.os;
 
 }
-
-TEST(Parser, BigJson_FileInput) {
-
-
-	std::string cborInputPath = "/tmp/big.cbor";
-	std::string cborOutputPath = "/tmp/big.fromCbor.file.json";
-
-	std::ifstream ifs(cborInputPath);
-	std::ofstream ofs(cborOutputPath);
-
-	ToJsonVisitor v;
-
-	auto t0 = getMicros();
-	FileCborParser<ToJsonVisitor> p(v, BinStreamFile{std::move(ifs)});
-	p.parse();
-	auto t1 = getMicros();
-
-	std::cout << " - [file input] 'big.cbor' parse took: " << (t1-t0) * 1e-3 << "ms\n";
-
-	ofs << v.finish();
-
-}
-
