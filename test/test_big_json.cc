@@ -5,11 +5,14 @@
 #include "to_json_visitor.hpp"
 #include "timing.hpp"
 
+// NOTE: You must run `python3 -m pysrc.getTestData` PRIOR to running this test.
+
 namespace {
 std::vector<uint8_t> read_file_bytes(const std::string& path) {
 	std::ifstream ifs(path);
 	ifs.seekg(0, std::ios_base::end);
 	size_t len = ifs.tellg();
+	assert(len < (1<<30));
 	std::vector<uint8_t> data(len);
 	ifs.seekg(0, std::ios_base::beg);
 	ifs.read((char*)data.data(), len);
@@ -22,6 +25,7 @@ std::string read_file_string(const std::string& path) {
 	size_t len = ifs.tellg();
 	std::string data;
 	data.resize(len);
+	assert(len < (1<<30));
 	ifs.seekg(0, std::ios_base::beg);
 	ifs.read((char*)data.data(), len);
 	ifs.close();
