@@ -26,14 +26,15 @@
 
 namespace cbor {
 
-        struct BinStreamBuffer1 {
-            inline BinStreamBuffer1(const uint8_t* data, size_t len)
+        struct BinStreamBuffer {
+            inline BinStreamBuffer(const uint8_t* data, size_t len)
                 : data(data)
                 , len(len) {
             }
+            inline BinStreamBuffer() : data(0), len(0) {}
 
-            const uint8_t* data;
-            size_t len;
+            const uint8_t* data = 0;
+            size_t len = 0;
             size_t cursor_ = 0;
 
 			inline size_t cursor() const { return cursor_; }
@@ -46,16 +47,68 @@ namespace cbor {
                 return data[cursor_++];
             }
             template <class V> inline V nextValue() {
+				/*
                 auto out = nextBytes(sizeof(V));
                 return *reinterpret_cast<const V*>(out); // NOTE: Must I memcpy to align to boundary?
+				*/
+				V v;
+				memcpy(&v, data+cursor_, sizeof(V));
+				cursor_ += sizeof(V);
+                return v;
             }
+
+			/*
             inline const uint8_t* nextBytes(size_t n) {
                 assert(hasMore(n));
                 auto out = data + cursor_;
                 cursor_ += n;
                 return out;
             }
+			*/
+			inline DataBuffer nextBytes(size_t n) {
+                assert(hasMore(n));
+                auto ptr = data + cursor_;
+                cursor_ += n;
+                return DataBuffer(ptr, n); // view.
+			}
+
+			inline bool valid() const { return data != 0; }
         };
+
+        struct BinStreamFile {
+            inline BinStreamFile(const std::string& path) : ifs(path, std::ios_base::in | std::ios_base::binary), isSet(true) {}
+            inline BinStreamFile(std::ifstream&& ifs) : ifs(std::move(ifs)), isSet(true) {}
+            inline BinStreamFile() : isSet(false) {}
+
+			inline bool valid() const { return isSet; }
+
+            inline bool hasMore(size_t n = 1) const {
+                return !ifs.eof();
+            }
+            inline uint8_t nextByte() {
+                assert(hasMore());
+				uint8_t out;
+                ifs.read((char*)&out, 1);
+				return out;
+            }
+            template <class V> inline V nextValue() {
+				V v;
+				ifs.read((char*)&v, sizeof(V));
+                return v;
+            }
+            inline DataBuffer nextBytes(size_t n) {
+                assert(hasMore(n));
+                DataBuffer db(n); // allocate + own.
+				ifs.read((char*)&db.buf, n);
+                return db;
+            }
+
+			private:
+
+			std::ifstream ifs;
+			bool isSet;
+
+		};
 
 
 	// struct Value {
@@ -84,9 +137,10 @@ namespace cbor {
 		uint8_t, int64_t, uint64_t,
 		float, double,
 		bool,
-		TextStringView,
-		ByteStringView,
-		TypedArrayView,
+		// TextStringView,
+		// ByteStringView,
+		// TypedArrayView,
+		TextBuffer, ByteBuffer, TypedArrayBuffer,
 		BeginArray, BeginMap, EndArray, EndMap,
 		Null,
 		End
@@ -119,9 +173,9 @@ namespace cbor {
 
 			if (done) { return std::string{buf}; }
 
-			if (std::holds_alternative<TextStringView>(value)) return "\"" + std::string{std::get<TextStringView>(value)} + "\"";
-			if (std::holds_alternative<ByteStringView>(value)) printf("bstr{len=%ld}", std::get<ByteStringView>(value).size());
-			if (std::holds_alternative<TypedArrayView>(value)) printf("tav{len=%ld}", std::get<TypedArrayView>(value).byteLength);
+			if (std::holds_alternative<TextBuffer>(value)) return "\"" + std::string{std::get<TextBuffer>(value).asStringView()} + "\"";
+			if (std::holds_alternative<ByteBuffer>(value)) printf("bstr{len=%ld}", std::get<ByteBuffer>(value).size());
+			if (std::holds_alternative<TypedArrayBuffer>(value)) printf("tav{len=%ld}", std::get<TypedArrayBuffer>(value).size());
 
 			return std::string{"<unknown>"};
 		}
@@ -132,11 +186,11 @@ namespace cbor {
 			else if (std::holds_alternative<int64_t>(value)) printf("long{%ld}", std::get<int64_t>(value));
 			else if (std::holds_alternative<float>(value)) printf("f32{%f}", std::get<float>(value));
 			else if (std::holds_alternative<double>(value)) printf("f64{%lf}", std::get<double>(value));
-			else if (std::holds_alternative<TextStringView>(value)) printf("str{%s}", std::string{std::get<TextStringView>(value)}.c_str());
-			else if (std::holds_alternative<ByteStringView>(value)) printf("bstr{%ld}", std::get<ByteStringView>(value).size());
+			else if (std::holds_alternative<TextBuffer>(value)) printf("str{%s}", std::string{std::get<TextBuffer>(value).asStringView()}.c_str());
+			else if (std::holds_alternative<ByteBuffer>(value)) printf("bstr{%ld}", std::get<ByteBuffer>(value).size());
 			else if (std::holds_alternative<Null>(value)) printf("null");
 			else if (std::holds_alternative<End>(value)) printf("end");
-			else if (std::holds_alternative<TypedArrayView>(value)) printf("tav{%ld}", std::get<TypedArrayView>(value).byteLength);
+			else if (std::holds_alternative<TypedArrayBuffer>(value)) printf("tav{%ld}", std::get<TypedArrayBuffer>(value).size());
 			else if (std::holds_alternative<BeginArray>(value)) printf("beginArray{");
 			else if (std::holds_alternative<EndArray>(value)) printf("}endArray");
 			else if (std::holds_alternative<BeginMap>(value)) printf("beginMap{");
@@ -151,10 +205,15 @@ namespace cbor {
 	};
 
 	struct OnlineCborParser {
-		BinStreamBuffer1 strm;
+		private:
+		BinStreamBuffer strm1;
+		BinStreamFile   strm2;
 		std::vector<State> stack = { State{Mode::root}, };
 
-        inline OnlineCborParser(BinStreamBuffer1&& strm) : strm(std::move(strm)) {}
+		public:
+
+        inline OnlineCborParser(BinStreamBuffer&& strm) : strm1(std::move(strm)) {}
+        inline OnlineCborParser(BinStreamFile  && strm) : strm2(std::move(strm)) {}
 
 		Item next();
 
@@ -178,7 +237,7 @@ namespace cbor {
 		void consumeArray(size_t size, F&& f);
 
 		inline bool hasMore() const {
-			return strm.hasMore();
+			return strm1.hasMore();
 		}
 		
 	};
@@ -186,15 +245,15 @@ namespace cbor {
 
 	inline Item OnlineCborParser::next() {
 
-		if (!strm.hasMore()) {
+		if (!strm1.hasMore()) {
 			return makeItem(End{});
 		}
 		auto depth = stack.back().depth;
 		auto seq = stack.back().sequenceIdx;
 		auto len = stack.back().len;
-		printf(" - NEXT (d %d|%ld) (s %ld / %ld)\n", depth, stack.size(), seq, len);
+		// printf(" - NEXT (d %d|%ld) (s %ld / %ld)\n", depth, stack.size(), seq, len);
 
-        byte b              = strm.nextByte();
+        byte b              = strm1.nextByte();
         byte majorType      = b >> 5;
         byte additionalInfo = b & 0b11111;
         cborPrintf(" - parse_item() [stackDepth: %d] [curState: %s] [m %d | addInfo %d]\n", stateStack.size(),
@@ -209,13 +268,13 @@ namespace cbor {
             } else if (additionalInfo >= 24 and additionalInfo <= 27) {
                 size_t v;
                 if (additionalInfo == 24)
-                    v = (strm.template nextValue<uint8_t>());
+                    v = (strm1.template nextValue<uint8_t>());
                 else if (additionalInfo == 25)
-                    v = ntohs(strm.template nextValue<uint16_t>());
+                    v = ntohs(strm1.template nextValue<uint16_t>());
                 else if (additionalInfo == 26)
-                    v = ntohl(strm.template nextValue<uint32_t>());
+                    v = ntohl(strm1.template nextValue<uint32_t>());
                 else if (additionalInfo == 27)
-                    v = ntohll(strm.template nextValue<uint64_t>());
+                    v = ntohll(strm1.template nextValue<uint64_t>());
                 return v;
             } else if (additionalInfo >= 28 and additionalInfo <= 30) {
                 assert(false);
@@ -243,6 +302,16 @@ namespace cbor {
             int64_t v = (-1 - static_cast<int64_t>(get_uint_for_value(additionalInfo)));
 			return makeItem(v);
         }
+		
+        else if (majorType == 2) {
+            size_t str_len = get_uint_for_length(additionalInfo);
+            if (str_len == kIndefiniteLength) {
+                throw std::runtime_error("Indefinite length strings are NOT supported by this decoder.");
+            }
+            // assert(str_len > 0);
+			auto db = strm1.nextBytes(str_len);
+            return makeItem(ByteBuffer { std::move(db) });
+        }
 
         else if (majorType == 3) {
             size_t str_len = get_uint_for_length(additionalInfo);
@@ -250,10 +319,10 @@ namespace cbor {
                 throw std::runtime_error("Indefinite length strings are NOT supported by this decoder.");
             }
             // assert(str_len > 0);
-            const char* head = (const char*)strm.nextBytes(str_len);
+			auto db = strm1.nextBytes(str_len);
             // vtor.visit_text_string(TextStringView{head, str_len});
             // cborPrintf(" - Advance with text string view : \"%s\"\n", std::string{TextStringView{head, str_len}}.c_str());
-            return makeItem(TextStringView { head, str_len });
+            return makeItem(TextBuffer { std::move(db) });
         }
 
         else if (majorType == 4) {
@@ -278,7 +347,7 @@ namespace cbor {
                 uint8_t signing  = (tag & 0b01000) != 0;
                 uint8_t endian   = (tag & 0b00100) != 0;
                 uint8_t ll       = tag & 0b00011;
-                TypedArrayView::Type type;
+                TypedArrayBuffer::Type type;
                 if (floating and ll == 0)
                     assert(false && "invalid typed array type");
                 else if (floating and ll == 0)
@@ -286,33 +355,33 @@ namespace cbor {
                 else if (floating and ll == 3)
                     assert(false && "float128 not supported");
                 else if (floating and ll == 1)
-                    type = TypedArrayView::eFloat32;
+                    type = TypedArrayBuffer::eFloat32;
                 else if (floating and ll == 2)
-                    type = TypedArrayView::eFloat64;
+                    type = TypedArrayBuffer::eFloat64;
                 else if (ll == 0 and !signing)
-                    type = TypedArrayView::eUInt8;
+                    type = TypedArrayBuffer::eUInt8;
                 else if (ll == 0 and signing)
-                    type = TypedArrayView::eInt8;
+                    type = TypedArrayBuffer::eInt8;
                 else if (ll == 1 and !signing)
-                    type = TypedArrayView::eUInt16;
+                    type = TypedArrayBuffer::eUInt16;
                 else if (ll == 1 and signing)
-                    type = TypedArrayView::eInt16;
+                    type = TypedArrayBuffer::eInt16;
                 else if (ll == 2 and !signing)
-                    type = TypedArrayView::eUInt32;
+                    type = TypedArrayBuffer::eUInt32;
                 else if (ll == 2 and signing)
-                    type = TypedArrayView::eInt32;
+                    type = TypedArrayBuffer::eInt32;
                 else if (ll == 3 and !signing)
-                    type = TypedArrayView::eUInt64;
+                    type = TypedArrayBuffer::eUInt64;
                 else if (ll == 3 and signing)
-                    type = TypedArrayView::eInt64;
+                    type = TypedArrayBuffer::eInt64;
 
-                byte byteStringHead = strm.nextByte();
+                byte byteStringHead = strm1.nextByte();
                 if (byteStringHead >> 5 != 0b010) { throw std::runtime_error("while parsing typed array, expected byte string."); }
                 byte byteStringAdditionalInfo = byteStringHead & 0b11111;
                 size_t blen                   = get_uint_for_length(byteStringAdditionalInfo);
 
-                TypedArrayView tav { .type = type, .endianness = endian, .data = strm.nextBytes(blen), .byteLength = blen };
-
+				auto db = strm1.nextBytes(blen);
+				TypedArrayBuffer tav(std::move(db), type, endian);
                 return makeItem(std::move(tav));
             } else {
                 assert(false && "unsupported tag data encountered.");
@@ -329,16 +398,16 @@ namespace cbor {
 			} else if (additionalInfo < 24) {
                 return makeItem(additionalInfo);
             } else if (additionalInfo == 24) {
-                byte sval = strm.nextByte();
+                byte sval = strm1.nextByte();
                 return makeItem(sval);
             } else if (additionalInfo == 25) {
                 assert(false && "half floats are not supported.");
             } else if (additionalInfo == 26) {
-                float v = strm.template nextValue<float>();
+                float v = strm1.template nextValue<float>();
 				v = ntoh(v);
                 return makeItem(v);
             } else if (additionalInfo == 27) {
-                double v = strm.template nextValue<double>();
+                double v = strm1.template nextValue<double>();
 				v = ntoh(v);
                 return makeItem(v);
             } else if (additionalInfo == 28 or additionalInfo == 29 or additionalInfo == 30) {
@@ -363,6 +432,7 @@ namespace cbor {
 				*/
 				return makeItem(End{});
             }
+            throw std::runtime_error("what.");
 		}
 
         assert(false && "impossible");
@@ -370,7 +440,7 @@ namespace cbor {
 
 	template <class F>
 	inline void OnlineCborParser::consumeMap(size_t size, F&& f) {
-		printf(" - begin map %d\n", (int)size);
+		// printf(" - begin map %d\n", (int)size);
 		for (size_t i=0; i<size; i++) {
 			auto key = this->next();
 			// if (std::holds_alternative<EndMap>(key.value)) break;
@@ -379,7 +449,7 @@ namespace cbor {
 			auto val = this->next();
 			f(std::move(key), std::move(val));
 		}
-		printf(" - end map %d\n", (int)size);
+		// printf(" - end map %d\n", (int)size);
 		// f(makeItem(-1),makeItem(-1));
 		// f(makeItem(EndMap{}),makeItem(EndMap{}));
 	}
