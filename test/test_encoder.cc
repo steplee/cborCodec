@@ -37,7 +37,7 @@ TEST(EncoderParser, TestCodeDecodeSimple) {
 
 
 	{
-		OnlineCborParser p(BinStreamBuffer{data.data(), data.size()});
+		CborParser p(BinStreamBuffer{data.data(), data.size()});
 		JsonPrinter jp(p);
 
 		// std::cout << " - json:\n" << v.finish() << "\n";

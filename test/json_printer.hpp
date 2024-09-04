@@ -1,14 +1,14 @@
-#include "cborCodec/cbor_online_parser.hpp"
+#include "cborCodec/cbor_parser.hpp"
 
 namespace {
 using namespace cbor;
 struct JsonPrinter {
 
-	OnlineCborParser &p;
+	CborParser &p;
 
 	std::string os;
 
-	inline JsonPrinter(OnlineCborParser& p_) : p(p_) {
+	inline JsonPrinter(CborParser& p_) : p(p_) {
 		visitRoot();
 	}
 
@@ -18,7 +18,7 @@ struct JsonPrinter {
 		os += "[";
 		while (p.hasMore()) {
 			if (i != 0) os += ",";
-			visitScalar(p.next());
+			visitItem(p.next());
 			i++;
 		}
 		os += "]";
@@ -29,7 +29,7 @@ struct JsonPrinter {
 		os += "[";
 		p.consumeArray(std::get<BeginArray>(it.value).size, [&i,this](Item&& v) {
 				if (i != 0) os += ",";
-				visitScalar(v);
+				visitItem(v);
 				i++;
 		});
 		os += "]";
@@ -45,14 +45,14 @@ struct JsonPrinter {
 				else os += "\"" + ks + "\"";
 				os += ":";
 
-				visitScalar(v);
+				visitItem(v);
 				i++;
 		});
 		os += "}";
 	}
 
 
-	inline void visitScalar(const Item& v) {
+	inline void visitItem(const Item& v) {
 		if (std::holds_alternative<BeginMap>(v.value)) {
 			visitMap(v);
 		} else if (std::holds_alternative<BeginArray>(v.value)) {

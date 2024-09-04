@@ -118,8 +118,9 @@ namespace cbor {
         } type;
 
 		inline TypedArrayBuffer(DataBuffer&& db, TypedArrayBuffer::Type type, uint8_t endianness)
-			: DataBuffer(std::move(db))
-			  , type(type)
+			:
+			   type(type)
+			  ,	DataBuffer(std::move(db))
 			  , endianness(endianness)
 		{
 		}
@@ -197,7 +198,7 @@ namespace cbor {
         }
 
         template <class It> inline void copyTo(It begin, It end) const {
-            int i = 0;
+            uint32_t i = 0;
             while (begin != end) {
 
                 assert(i < elementLength());
@@ -219,14 +220,14 @@ namespace cbor {
 
     inline uint64_t htonll(uint64_t v) {
         uint64_t o = 0;
-#pragma unroll
+// #pragma unroll
         for (int i = 0; i < 8; i++) { o |= ((v >> static_cast<uint64_t>(8 * (8 - i - 1))) & 0b1111'1111) << (8 * i); }
         return o;
     }
 
     inline uint64_t ntohll(uint64_t v) {
         uint64_t o = 0;
-#pragma unroll
+// #pragma unroll
         for (int i = 0; i < 8; i++) { o |= ((v >> static_cast<uint64_t>(8 * (8 - i - 1))) & 0b1111'1111) << (8 * i); }
         return o;
     }
@@ -260,12 +261,14 @@ namespace cbor {
     inline float ntoh(const float& v) {
         const uint32_t& vv = *reinterpret_cast<const uint32_t*>(&v);
         uint32_t vvv       = ntoh(vv);
-        return *reinterpret_cast<float*>(&vvv);
+        float *out = reinterpret_cast<float*>(&vvv);
+		return *out;
     }
     inline double ntoh(const double& v) {
         const uint64_t& vv = *reinterpret_cast<const uint64_t*>(&v);
         uint64_t vvv       = ntoh(vv);
-        return *reinterpret_cast<double*>(&vvv);
+        double *out = reinterpret_cast<double*>(&vvv);
+		return *out;
     }
 
     inline uint16_t hton(const uint16_t& v) {
@@ -297,12 +300,14 @@ namespace cbor {
     inline float hton(const float& v) {
         const uint32_t& vv = *reinterpret_cast<const uint32_t*>(&v);
         uint32_t vvv       = hton(vv);
-        return *reinterpret_cast<float*>(&vvv);
+        float *out = reinterpret_cast<float*>(&vvv);
+		return *out;
     }
     inline double hton(const double& v) {
         const uint64_t& vv = *reinterpret_cast<const uint64_t*>(&v);
         uint64_t vvv       = hton(vv);
-        return *reinterpret_cast<double*>(&vvv);
+        double *out = reinterpret_cast<double*>(&vvv);
+		return *out;
     }
 
 }

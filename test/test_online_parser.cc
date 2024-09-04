@@ -1,12 +1,12 @@
 #include <gtest/gtest.h>
 
-#include "cborCodec/cbor_online_parser.hpp"
+#include "cborCodec/cbor_parser.hpp"
 #include "json_printer.hpp"
 
 using namespace cbor;
 
 
-TEST(OnlineParser, Simple) {
+TEST(Parser, Simple) {
 
 	std::vector<uint8_t> data {
 		// 1
@@ -71,31 +71,7 @@ TEST(OnlineParser, Simple) {
 	};
 
 	using namespace cbor;
-	OnlineCborParser p(BinStreamBuffer{data.data(), data.size()});
-
-	/*
-	{
-	auto it = p.next();
-	it.print("it0: ", "\n");
-	assert(std::holds_alternative<uint8_t>(it.value));
-	}
-
-	{
-	auto it = p.next();
-	it.print("it1: ", "\n");
-	assert(std::holds_alternative<TextStringView>(it.value));
-	}
-
-	{
-		auto it = p.next();
-		it.print("it2: ", "\n");
-		assert(std::holds_alternative<BeginMap>(it.value));
-		p.consumeMap(std::get<BeginMap>(it.value).size, [](Item&& k, Item&& v) {
-				k.print("    - ", ": ");
-				v.print("","\n");
-		});
-	}
-	*/
+	CborParser p(BinStreamBuffer{data.data(), data.size()});
 
 	JsonPrinter jp(p);
 	printf(" - json:\n%s\n", jp.os.c_str());

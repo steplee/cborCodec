@@ -3,7 +3,7 @@
 #include <fstream>
 #include <cassert>
 
-#include "cborCodec/cbor_online_parser.hpp"
+#include "cborCodec/cbor_parser.hpp"
 #include "cborCodec/cbor_encoder.hpp"
 
 // Not a great API -- it needs some thought.
@@ -153,7 +153,7 @@ namespace {
 			assert(std::holds_alternative<TypedArrayBuffer>(v));
 			const auto &tav = std::get<TypedArrayBuffer>(v);
 
-			for (int i=0; i<tav.elementLength(); i++) {
+			for (uint32_t i=0; i<tav.elementLength(); i++) {
 				if constexpr(std::is_pointer_v<T> && std::is_same_v<std::remove_cv_t<std::remove_pointer_t<T>>,double>)
 					t[i] = tav.accessAs<double>(i);
 				else if constexpr(std::is_array_v<T> && std::is_same_v<std::remove_cv_t<std::remove_extent_t<T>>,double>)
@@ -198,8 +198,8 @@ namespace {
 
 
 
-	Message1 parseMessage1(OnlineCborParser& p, size_t numel) {
-	// Message1 parseMessage1(OnlineCborParser& p) {
+	Message1 parseMessage1(CborParser& p, size_t numel) {
+	// Message1 parseMessage1(CborParser& p) {
 		// auto bm = p.next();
 		// assert(std::holds_alternative<BeginMap>(bm.value));
 		// size_t numel = std::get<BeginMap>(bm.value).size;
@@ -213,8 +213,8 @@ namespace {
 		});
 		return m;
 	}
-	Message2 parseMessage2(OnlineCborParser& p, size_t numel) {
-	// Message2 parseMessage2(OnlineCborParser& p) {
+	Message2 parseMessage2(CborParser& p, size_t numel) {
+	// Message2 parseMessage2(CborParser& p) {
 		// auto bm = p.next();
 		// assert(std::holds_alternative<BeginMap>(bm.value));
 		// size_t numel = std::get<BeginMap>(bm.value).size;
@@ -231,9 +231,9 @@ namespace {
 	}
 
 	struct Replay {
-		OnlineCborParser &p;
+		CborParser &p;
 		std::vector<MessageVariant> msgs;
-		inline Replay(OnlineCborParser& p_) : p(p_) {
+		inline Replay(CborParser& p_) : p(p_) {
 		}
 
 		inline void run() {
@@ -346,7 +346,7 @@ TEST(BusMessageVisitor, One) {
 	std::cout << " - encoded size " << encoded.size() << "\n";
 
 	{
-		OnlineCborParser p(BinStreamBuffer{encoded.data(), encoded.size()});
+		CborParser p(BinStreamBuffer{encoded.data(), encoded.size()});
 		Replay v(p);
 		v.run();
 

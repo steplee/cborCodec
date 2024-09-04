@@ -55,7 +55,7 @@ TEST(Parser, BigJson_BufferInput) {
 	std::cout << " - input size: " << static_cast<double>(data.size()) / (1<<20) << "MB\n";
 
 	auto t1 = getMicros();
-	OnlineCborParser p(BinStreamBuffer{data.data(), data.size()});
+	CborParser p(BinStreamBuffer{data.data(), data.size()});
 	JsonPrinter jp(p);
 	auto t2 = getMicros();
 

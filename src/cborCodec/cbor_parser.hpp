@@ -110,10 +110,6 @@ namespace cbor {
 
 		};
 
-
-	// struct Value {
-	// };
-
         enum class Mode : uint8_t { root, array, map };
         struct State {
             Mode mode = Mode::root;
@@ -198,13 +194,13 @@ namespace cbor {
 			else printf("<unknown>");
 		}
 		inline void print(const char* before, const char* after) const {
-			printf(before);
+			printf("%s", before);
 			print();
-			printf(after);
+			printf("%s", after);
 		}
 	};
 
-	struct OnlineCborParser {
+	struct CborParser {
 		private:
 		BinStreamBuffer strm1;
 		BinStreamFile   strm2;
@@ -212,8 +208,8 @@ namespace cbor {
 
 		public:
 
-        inline OnlineCborParser(BinStreamBuffer&& strm) : strm1(std::move(strm)) {}
-        inline OnlineCborParser(BinStreamFile  && strm) : strm2(std::move(strm)) {}
+        inline CborParser(BinStreamBuffer&& strm) : strm1(std::move(strm)) {}
+        inline CborParser(BinStreamFile  && strm) : strm2(std::move(strm)) {}
 
 		Item next();
 
@@ -243,7 +239,7 @@ namespace cbor {
 	};
 
 
-	inline Item OnlineCborParser::next() {
+	inline Item CborParser::next() {
 
 		if (!strm1.hasMore()) {
 			return makeItem(End{});
@@ -374,6 +370,8 @@ namespace cbor {
                     type = TypedArrayBuffer::eUInt64;
                 else if (ll == 3 and signing)
                     type = TypedArrayBuffer::eInt64;
+				else
+					throw std::runtime_error("invalid typed array type.");
 
                 byte byteStringHead = strm1.nextByte();
                 if (byteStringHead >> 5 != 0b010) { throw std::runtime_error("while parsing typed array, expected byte string."); }
@@ -439,7 +437,7 @@ namespace cbor {
 	}
 
 	template <class F>
-	inline void OnlineCborParser::consumeMap(size_t size, F&& f) {
+	inline void CborParser::consumeMap(size_t size, F&& f) {
 		// printf(" - begin map %d\n", (int)size);
 		for (size_t i=0; i<size; i++) {
 			auto key = this->next();
@@ -449,13 +447,11 @@ namespace cbor {
 			auto val = this->next();
 			f(std::move(key), std::move(val));
 		}
-		// printf(" - end map %d\n", (int)size);
-		// f(makeItem(-1),makeItem(-1));
 		// f(makeItem(EndMap{}),makeItem(EndMap{}));
 	}
 
 	template <class F>
-	inline void OnlineCborParser::consumeArray(size_t size, F&& f) {
+	inline void CborParser::consumeArray(size_t size, F&& f) {
 		for (size_t i=0; i<size; i++) {
 
 			auto val = this->next();

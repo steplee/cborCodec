@@ -29,15 +29,16 @@
 namespace cbor {
 
     namespace {
+		auto kInvalidCursor = std::numeric_limits<size_t>::max();
 	}
 
 
 	struct OutBinStreamBuffer {
 		std::vector<uint8_t> data;
-		size_t cursor = 0;
+		size_t cursor = kInvalidCursor;
 
 		inline OutBinStreamBuffer() {
-			cursor = -1;
+			cursor = kInvalidCursor;
 		}
 		inline OutBinStreamBuffer(size_t size) {
 			data.resize(size);
@@ -55,7 +56,7 @@ namespace cbor {
 			return std::move(data);
 		}
 
-		inline bool valid() const { return cursor != -1; }
+		inline bool valid() const { return cursor != kInvalidCursor; }
 	};
 
 
@@ -185,22 +186,22 @@ namespace cbor {
 		byte m = majorType << 5;
 
 		if (majorType != 0 and majorType != 1 and v == kIndefiniteLength) {
-			write(byte{(majorType << 5) | 0b11111});
+			write(static_cast<byte>((majorType << 5) | 0b11111));
 		}
 
 		else if (v < 24) {
-			write(byte{m | static_cast<uint8_t>(v)});
+			write(static_cast<byte>(m | static_cast<uint8_t>(v)));
 		} else if (v < (1lu << 8lu)) {
-			write(byte{m | static_cast<uint8_t>(24)});
+			write(static_cast<byte>(m | static_cast<uint8_t>(24)));
 			write((static_cast<uint8_t>(v)));
 		} else if (v < (1lu << 16lu)) {
-			write(byte{m | static_cast<uint8_t>(25)});
+			write(static_cast<byte>(m | static_cast<uint8_t>(25)));
 			write(htons(static_cast<uint16_t>(v)));
 		} else if (v < (1lu << 32lu)) {
-			write(byte{m | static_cast<uint8_t>(26)});
+			write(static_cast<byte>(m | static_cast<uint8_t>(26)));
 			write(htonl(static_cast<uint32_t>(v)));
 		} else {
-			write(byte{m | static_cast<uint8_t>(27)});
+			write(static_cast<byte>(m | static_cast<uint8_t>(27)));
 			write(htonll(static_cast<uint64_t>(v)));
 		}
 	}
@@ -212,22 +213,22 @@ namespace cbor {
 	}
 
 	inline void CborEncoder::push_value(False v) {
-		write(byte{(0b111 << 5) | 20});
+		write(static_cast<byte>((0b111 << 5) | 20));
 	}
 	inline void CborEncoder::push_value(True v) {
-		write(byte{(0b111 << 5) | 21});
+		write(static_cast<byte>((0b111 << 5) | 21));
 	}
 	inline void CborEncoder::push_value(Null v) {
-		write(byte{(0b111 << 5) | 22});
+		write(static_cast<byte>((0b111 << 5) | 22));
 	}
 
 	inline void CborEncoder::push_value(float v) {
-		write(byte{(0b111 << 5) | 26});
+		write(static_cast<byte>((0b111 << 5) | 26));
 		v = hton(v);
 		write(v);
 	}
 	inline void CborEncoder::push_value(double v) {
-		write(byte{(0b111 << 5) | 27});
+		write(static_cast<byte>((0b111 << 5) | 27));
 		v = hton(v);
 		write(v);
 	}
