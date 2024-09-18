@@ -1,39 +1,109 @@
 #pragma once
 
 #include <cstdint>
+#include <cassert>
 #include <limits>
 #include <string_view>
 #include <type_traits>
+#include <vector>
 
 #ifdef CBOR_CODEC_DEBUG
 #define cborPrintf(...) printf(__VA_ARGS__);
 #else
-#define cborPrintf(...) {}
+#define cborPrintf(...)                                                                                                                \
+    { }
 #endif
-
 
 namespace cbor {
 
-		constexpr size_t kIndefiniteLength = std::numeric_limits<size_t>::max();
-		constexpr size_t kInvalidLength    = std::numeric_limits<size_t>::max() - 1;
+    constexpr size_t kIndefiniteLength = std::numeric_limits<size_t>::max();
+    constexpr size_t kInvalidLength    = std::numeric_limits<size_t>::max() - 1;
 
-		using byte                         = uint8_t;
+    using byte                         = uint8_t;
 
-    using TextStringView = std::basic_string_view<char>;
-    using ByteStringView = std::basic_string_view<uint8_t>;
+    // using TextStringView               = std::basic_string_view<char>;
+    // using ByteStringView               = std::basic_string_view<uint8_t>;
 
-	struct True {};
-	struct False {};
-	struct Null {};
+    struct True { };
+    struct False { };
+    struct Null { };
 
-
-	namespace {
+    namespace {
         template <class T> T maybeSwapBytes(bool littleEndian, const T& v) {
             return v;
         }
-	}
+    }
 
-    struct TypedArrayView {
+	//
+	// Base class of `TextBuffer`, `ByteBuffer`, and `TypedArrayBuffer`.
+	//
+	// The history of these types is that they used to just be sized pointers to the input buffer.
+	// But this only works when the input *is* a buffer, but does not work when the input is a file.
+	//
+	// When the input is a buffer, it's most efficient to just use a pointer+size, because no malloc and no copies are needed.
+	// For file inputs, we could keep a window of multiple blocks, and in practice there may never be an issue.
+	// But for a completely correct implementation (supporting unrealistic but possible very large strings or typed arrays), we must
+	// have this buffer class own it's data for file inputs.
+	//
+	// So this class supports both scenarios. If `isView` is false then we own the pointer and the destructor frees it.
+	// Otherwise we just have a very efficient view into the input buffer (whose lifetime is ASSUMED to outlive the parser's, and is const).
+	//
+	// Note that those classes subclass this one which makes std::variant<> easy to use while not duplicating code.
+	//
+	struct DataBuffer {
+		// std::vector<uint8_t> buf;
+		const byte* buf = 0;
+		std::size_t len = 0;
+		bool isView = true;
+
+		inline DataBuffer();
+
+		inline DataBuffer(DataBuffer&& o) : buf(o.buf), len(o.len), isView(o.isView) {
+			o.isView = false;
+			o.buf = nullptr;
+			o.len = 0;
+		}
+		inline DataBuffer& operator=(DataBuffer&& o) {
+			isView = o.isView;
+			buf = o.buf;
+			len = o.len;
+			o.isView = false;
+			o.buf = nullptr;
+			o.len = 0;
+			return *this;
+		}
+
+		// view
+		inline DataBuffer(const uint8_t* data, std::size_t len) : buf(data), len(len), isView(true) {}
+
+		// allocate
+		inline DataBuffer(std::size_t len) {
+			buf = new byte[len];
+		}
+
+		inline ~DataBuffer() {
+			if (isView) {
+			} else {
+				delete[] buf;
+			}
+		}
+
+		inline std::size_t size() const { return len; }
+
+	};
+	struct TextBuffer : public DataBuffer {
+		std::string_view asStringView() const {
+			return std::string_view((const char*)buf, len);
+		}
+		inline char operator[](std::size_t i) const { return (char )buf[i]; }
+	};
+	struct ByteBuffer : public DataBuffer {
+		inline byte operator[](std::size_t i) const { return buf[i]; }
+	};
+
+    struct TypedArrayBuffer : public DataBuffer {
+
+
         enum Type {
             eInt8,
             eUInt8,
@@ -47,10 +117,16 @@ namespace cbor {
             eFloat64,
         } type;
 
+		inline TypedArrayBuffer(DataBuffer&& db, TypedArrayBuffer::Type type, uint8_t endianness)
+			:
+			   type(type)
+			  ,	DataBuffer(std::move(db))
+			  , endianness(endianness)
+		{
+		}
+
         uint8_t endianness : 1; // 0 big, 1 little
 
-        const uint8_t* data = 0;
-        size_t byteLength   = 0;
 
         inline size_t elementSize() const {
             switch (type) {
@@ -69,7 +145,7 @@ namespace cbor {
         }
 
         inline size_t elementLength() const {
-            return byteLength / elementSize();
+            return len / elementSize();
         }
 
         //
@@ -80,7 +156,7 @@ namespace cbor {
             assert(endianness == 1 and "Only little-endian arrays are supported.");
 
             T t;
-            memcpy(&t, data + elementSize() * i, elementSize());
+            memcpy(&t, buf + len + elementSize() * i, elementSize());
 
             if constexpr (std::is_same_v<T, int8_t>) {
                 assert(type == eInt8);
@@ -107,7 +183,7 @@ namespace cbor {
                 assert(type == eInt64);
                 return maybeSwapBytes(endianness, t);
 
-			// FIXME: Does endianess switch for float32/float64????
+                // FIXME: Does endianess switch for float32/float64????
             } else if constexpr (std::is_same_v<T, float>) {
                 assert(type == eFloat32);
                 // return maybeSwapBytes(endianness, t);
@@ -122,7 +198,7 @@ namespace cbor {
         }
 
         template <class It> inline void copyTo(It begin, It end) const {
-            int i = 0;
+            uint32_t i = 0;
             while (begin != end) {
 
                 assert(i < elementLength());
@@ -139,102 +215,99 @@ namespace cbor {
         }
     };
 
+    // WARNING: TEST THIS.
+    // FIXME: MISLEADING NAME: this hton should be conditional -- this swaps unconditionally (assumes WE are little endian)
 
+    inline uint64_t htonll(uint64_t v) {
+        uint64_t o = 0;
+// #pragma unroll
+        for (int i = 0; i < 8; i++) { o |= ((v >> static_cast<uint64_t>(8 * (8 - i - 1))) & 0b1111'1111) << (8 * i); }
+        return o;
+    }
 
+    inline uint64_t ntohll(uint64_t v) {
+        uint64_t o = 0;
+// #pragma unroll
+        for (int i = 0; i < 8; i++) { o |= ((v >> static_cast<uint64_t>(8 * (8 - i - 1))) & 0b1111'1111) << (8 * i); }
+        return o;
+    }
 
-        // WARNING: TEST THIS.
-		// FIXME: MISLEADING NAME: this hton should be conditional -- this swaps unconditionally (assumes WE are little endian)
+    inline uint16_t ntoh(const uint16_t& v) {
+        return ntohs(v);
+    }
+    inline uint32_t ntoh(const uint32_t& v) {
+        return ntohl(v);
+    }
+    inline uint64_t ntoh(const uint64_t& v) {
+        return ntohll(v);
+    }
 
+    inline int16_t ntoh(const int16_t& v) {
+        const uint16_t& vv = *reinterpret_cast<const uint16_t*>(&v);
+        uint16_t vvv       = ntoh(vv);
+        return *reinterpret_cast<int16_t*>(&vvv);
+    }
+    inline int32_t ntoh(const int32_t& v) {
+        const uint32_t& vv = *reinterpret_cast<const uint32_t*>(&v);
+        uint32_t vvv       = ntoh(vv);
+        return *reinterpret_cast<int32_t*>(&vvv);
+    }
+    inline int64_t ntoh(const int64_t& v) {
+        const uint64_t& vv = *reinterpret_cast<const uint64_t*>(&v);
+        uint64_t vvv       = ntoh(vv);
+        return *reinterpret_cast<int64_t*>(&vvv);
+    }
 
-        inline uint64_t htonll(uint64_t v) {
-            uint64_t o = 0;
-			#pragma unroll
-            for (int i = 0; i < 8; i++) { o |= ((v >> static_cast<uint64_t>(8 * (8 - i - 1))) & 0b1111'1111) << (8 * i); }
-            return o;
-        }
-	
-        inline uint64_t ntohll(uint64_t v) {
-            uint64_t o = 0;
-#pragma unroll
-            for (int i = 0; i < 8; i++) { o |= ((v >> static_cast<uint64_t>(8 * (8 - i - 1))) & 0b1111'1111) << (8 * i); }
-            return o;
-        }
+    inline float ntoh(const float& v) {
+        const uint32_t& vv = *reinterpret_cast<const uint32_t*>(&v);
+        uint32_t vvv       = ntoh(vv);
+        float *out = reinterpret_cast<float*>(&vvv);
+		return *out;
+    }
+    inline double ntoh(const double& v) {
+        const uint64_t& vv = *reinterpret_cast<const uint64_t*>(&v);
+        uint64_t vvv       = ntoh(vv);
+        double *out = reinterpret_cast<double*>(&vvv);
+		return *out;
+    }
 
-        inline uint16_t ntoh(const uint16_t& v) {
-			return ntohs(v);
-		}
-        inline uint32_t ntoh(const uint32_t& v) {
-			return ntohl(v);
-		}
-        inline uint64_t ntoh(const uint64_t& v) {
-			return ntohll(v);
-		}
-		
-        inline int16_t ntoh(const int16_t& v) {
-			const uint16_t& vv = *reinterpret_cast<const uint16_t*>(&v);
-			uint16_t vvv = ntoh(vv);
-			return *reinterpret_cast<int16_t*>(&vvv);
-		}
-        inline int32_t ntoh(const int32_t& v) {
-			const uint32_t& vv = *reinterpret_cast<const uint32_t*>(&v);
-			uint32_t vvv = ntoh(vv);
-			return *reinterpret_cast<int32_t*>(&vvv);
-		}
-        inline int64_t ntoh(const int64_t& v) {
-			const uint64_t& vv = *reinterpret_cast<const uint64_t*>(&v);
-			uint64_t vvv = ntoh(vv);
-			return *reinterpret_cast<int64_t*>(&vvv);
-		}
+    inline uint16_t hton(const uint16_t& v) {
+        return htons(v);
+    }
+    inline uint32_t hton(const uint32_t& v) {
+        return htonl(v);
+    }
+    inline uint64_t hton(const uint64_t& v) {
+        return htonll(v);
+    }
 
-		inline float ntoh(const float& v) {
-			const uint32_t& vv = *reinterpret_cast<const uint32_t*>(&v);
-			uint32_t vvv = ntoh(vv);
-			return *reinterpret_cast<float*>(&vvv);
-		}
-		inline double ntoh(const double& v) {
-			const uint64_t& vv = *reinterpret_cast<const uint64_t*>(&v);
-			uint64_t vvv = ntoh(vv);
-			return *reinterpret_cast<double*>(&vvv);
-		}
+    inline int16_t hton(const int16_t& v) {
+        const uint16_t& vv = *reinterpret_cast<const uint16_t*>(&v);
+        uint16_t vvv       = hton(vv);
+        return *reinterpret_cast<int16_t*>(&vvv);
+    }
+    inline int32_t hton(const int32_t& v) {
+        const uint32_t& vv = *reinterpret_cast<const uint32_t*>(&v);
+        uint32_t vvv       = hton(vv);
+        return *reinterpret_cast<int32_t*>(&vvv);
+    }
+    inline int64_t hton(const int64_t& v) {
+        const uint64_t& vv = *reinterpret_cast<const uint64_t*>(&v);
+        uint64_t vvv       = hton(vv);
+        return *reinterpret_cast<int64_t*>(&vvv);
+    }
 
-
-
-
-        inline uint16_t hton(const uint16_t& v) {
-			return htons(v);
-		}
-        inline uint32_t hton(const uint32_t& v) {
-			return htonl(v);
-		}
-        inline uint64_t hton(const uint64_t& v) {
-			return htonll(v);
-		}
-
-        inline int16_t hton(const int16_t& v) {
-			const uint16_t& vv = *reinterpret_cast<const uint16_t*>(&v);
-			uint16_t vvv = hton(vv);
-			return *reinterpret_cast<int16_t*>(&vvv);
-		}
-        inline int32_t hton(const int32_t& v) {
-			const uint32_t& vv = *reinterpret_cast<const uint32_t*>(&v);
-			uint32_t vvv = hton(vv);
-			return *reinterpret_cast<int32_t*>(&vvv);
-		}
-        inline int64_t hton(const int64_t& v) {
-			const uint64_t& vv = *reinterpret_cast<const uint64_t*>(&v);
-			uint64_t vvv = hton(vv);
-			return *reinterpret_cast<int64_t*>(&vvv);
-		}
-
-		inline float hton(const float& v) {
-			const uint32_t& vv = *reinterpret_cast<const uint32_t*>(&v);
-			uint32_t vvv = hton(vv);
-			return *reinterpret_cast<float*>(&vvv);
-		}
-		inline double hton(const double& v) {
-			const uint64_t& vv = *reinterpret_cast<const uint64_t*>(&v);
-			uint64_t vvv = hton(vv);
-			return *reinterpret_cast<double*>(&vvv);
-		}
+    inline float hton(const float& v) {
+        const uint32_t& vv = *reinterpret_cast<const uint32_t*>(&v);
+        uint32_t vvv       = hton(vv);
+        float *out = reinterpret_cast<float*>(&vvv);
+		return *out;
+    }
+    inline double hton(const double& v) {
+        const uint64_t& vv = *reinterpret_cast<const uint64_t*>(&v);
+        uint64_t vvv       = hton(vv);
+        double *out = reinterpret_cast<double*>(&vvv);
+		return *out;
+    }
 
 }

@@ -45,7 +45,6 @@ if get_option('build_tests').enabled()
   executable('tests',
     files(
       'test/test_encoder.cc',
-      'test/test_parser.cc',
       'test/test_big_json.cc',
       'test/test_bus_replay.cc',
       'test/test_online_parser.cc',

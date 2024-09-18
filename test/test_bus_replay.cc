@@ -3,8 +3,10 @@
 #include <fstream>
 #include <cassert>
 
-#include "cborCodec/cbor_online_parser.hpp"
+#include "cborCodec/cbor_parser.hpp"
 #include "cborCodec/cbor_encoder.hpp"
+
+// Not a great API -- it needs some thought.
 
 
 namespace {
@@ -128,8 +130,8 @@ namespace {
 		}
 		
 		if constexpr (std::is_same_v<T,std::string>) {
-			assert(std::holds_alternative<TextStringView>(v));
-			return std::string { std::get<TextStringView>(v) };
+			assert(std::holds_alternative<TextBuffer>(v));
+			return std::string { std::get<TextBuffer>(v).asStringView() };
 		}
 
 		else if constexpr (std::is_pointer_v<T>) {
@@ -148,10 +150,10 @@ namespace {
 		if constexpr (std::is_pointer_v<T> or std::is_array_v<T>) {
 
 			// NOTE: Only allow typed arrays -- not arrays with type tags every field.
-			assert(std::holds_alternative<TypedArrayView>(v));
-			auto tav = std::get<TypedArrayView>(v);
+			assert(std::holds_alternative<TypedArrayBuffer>(v));
+			const auto &tav = std::get<TypedArrayBuffer>(v);
 
-			for (int i=0; i<tav.elementLength(); i++) {
+			for (uint32_t i=0; i<tav.elementLength(); i++) {
 				if constexpr(std::is_pointer_v<T> && std::is_same_v<std::remove_cv_t<std::remove_pointer_t<T>>,double>)
 					t[i] = tav.accessAs<double>(i);
 				else if constexpr(std::is_array_v<T> && std::is_same_v<std::remove_cv_t<std::remove_extent_t<T>>,double>)
@@ -196,8 +198,8 @@ namespace {
 
 
 
-	Message1 parseMessage1(OnlineCborParser& p, size_t numel) {
-	// Message1 parseMessage1(OnlineCborParser& p) {
+	Message1 parseMessage1(CborParser& p, size_t numel) {
+	// Message1 parseMessage1(CborParser& p) {
 		// auto bm = p.next();
 		// assert(std::holds_alternative<BeginMap>(bm.value));
 		// size_t numel = std::get<BeginMap>(bm.value).size;
@@ -211,8 +213,8 @@ namespace {
 		});
 		return m;
 	}
-	Message2 parseMessage2(OnlineCborParser& p, size_t numel) {
-	// Message2 parseMessage2(OnlineCborParser& p) {
+	Message2 parseMessage2(CborParser& p, size_t numel) {
+	// Message2 parseMessage2(CborParser& p) {
 		// auto bm = p.next();
 		// assert(std::holds_alternative<BeginMap>(bm.value));
 		// size_t numel = std::get<BeginMap>(bm.value).size;
@@ -229,9 +231,9 @@ namespace {
 	}
 
 	struct Replay {
-		OnlineCborParser &p;
+		CborParser &p;
 		std::vector<MessageVariant> msgs;
-		inline Replay(OnlineCborParser& p_) : p(p_) {
+		inline Replay(CborParser& p_) : p(p_) {
 		}
 
 		inline void run() {
@@ -251,16 +253,16 @@ namespace {
 
 		inline void visitRootItem(BeginMap&& bm) {
 			auto k0 = p.next();
-			assert(std::holds_alternative<TextStringView>(k0.value) and std::get<TextStringView>(k0.value) == "metadata");
+			assert(std::holds_alternative<TextBuffer>(k0.value) and std::get<TextBuffer>(k0.value).asStringView() == "metadata");
 			auto meta = p.next();
 			assert(std::holds_alternative<BeginMap>(meta.value));
 			p.consumeMap(std::get<BeginMap>(meta.value).size, [](Item&& k, Item&& v) {});
 			// visitMetadata(std::move(std::get<BeginMap>(meta.value)));
 
 			auto k1 = p.next();
-			assert(std::holds_alternative<TextStringView>(k1.value));
-			printf("%s\n", std::string{std::get<TextStringView>(k1.value)}.c_str());
-			assert(std::get<TextStringView>(k1.value) == "messages");
+			assert(std::holds_alternative<TextBuffer>(k1.value));
+			printf("%s\n", std::string{std::get<TextBuffer>(k1.value).asStringView()}.c_str());
+			assert(std::get<TextBuffer>(k1.value).asStringView() == "messages");
 			auto messages = p.next();
 			assert(std::holds_alternative<BeginMap>(messages.value));
 			visitMessages(std::move(std::get<BeginMap>(messages.value)));
@@ -344,7 +346,7 @@ TEST(BusMessageVisitor, One) {
 	std::cout << " - encoded size " << encoded.size() << "\n";
 
 	{
-		OnlineCborParser p(BinStreamBuffer1{encoded.data(), encoded.size()});
+		CborParser p(BinStreamBuffer{encoded.data(), encoded.size()});
 		Replay v(p);
 		v.run();
 
