@@ -156,7 +156,7 @@ namespace cbor {
             assert(endianness == 1 and "Only little-endian arrays are supported.");
 
             T t;
-            memcpy(&t, buf + len + elementSize() * i, elementSize());
+            memcpy(&t, buf + elementSize() * i, elementSize());
 
             if constexpr (std::is_same_v<T, int8_t>) {
                 assert(type == eInt8);
