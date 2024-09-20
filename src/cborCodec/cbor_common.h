@@ -6,6 +6,7 @@
 #include <string_view>
 #include <type_traits>
 #include <vector>
+#include <cstring>
 
 #ifdef CBOR_CODEC_DEBUG
 #define cborPrintf(...) printf(__VA_ARGS__);
@@ -92,6 +93,11 @@ namespace cbor {
 
 	};
 	struct TextBuffer : public DataBuffer {
+		using DataBuffer::DataBuffer;
+		inline TextBuffer(DataBuffer&& db) : DataBuffer(std::move(db)) {}
+		inline TextBuffer(const std::string& s) : DataBuffer((const uint8_t*)s.data(), s.length()) {}
+		inline TextBuffer(const char* s) : DataBuffer((const uint8_t*)s, strlen(s)) {}
+
 		std::string_view asStringView() const {
 			return std::string_view((const char*)buf, len);
 		}

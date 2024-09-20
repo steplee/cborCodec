@@ -137,6 +137,7 @@ namespace cbor {
 		void push_typed_array(const int32_t* vs, size_t len);
 		void push_typed_array(const int64_t* vs, size_t len);
 		void push_typed_array(const uint64_t* vs, size_t len);
+		void push_value(const TypedArrayBuffer& tab);
 
 		template <typename Bool, typename T=std::enable_if_t<std::is_same<Bool, bool>{}>>
 		inline void push_value(Bool) {
@@ -257,6 +258,32 @@ namespace cbor {
 	}
 
 	// WARNING: Once again, we assume the host machine is little-endian.
+
+	inline void CborEncoder::push_value(const TypedArrayBuffer& tab) {
+		switch (tab.type) {
+			case TypedArrayBuffer::eUInt8:
+				push_typed_array((const uint8_t*)tab.buf, tab.len);
+				break;
+			case TypedArrayBuffer::eFloat32:
+				push_typed_array((const float*)tab.buf, tab.len);
+				break;
+			case TypedArrayBuffer::eFloat64:
+				push_typed_array((const double*)tab.buf, tab.len);
+				break;
+			case TypedArrayBuffer::eInt32:
+				push_typed_array((const int32_t*)tab.buf, tab.len);
+				break;
+			case TypedArrayBuffer::eInt64:
+				push_typed_array((const int64_t*)tab.buf, tab.len);
+				break;
+			case TypedArrayBuffer::eUInt64:
+				push_typed_array((const uint64_t*)tab.buf, tab.len);
+				break;
+			default:
+				assert(false && "unsupported");
+				break;
+		}
+	}
 
 	inline void CborEncoder::push_typed_array(const float* vs, size_t len) {
 		push_pos_integer(0b110, uint64_t { 0b010'00000 | 0b11101 });
