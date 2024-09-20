@@ -123,9 +123,11 @@ namespace cbor {
 		// Text string.
 		void push_value(const std::string& s);
 		void push_value(const char* s, size_t len);
+		void push_value(const TextBuffer& tb);
 
 		// Byte string.
 		void push_value(const uint8_t* bytes, size_t len);
+		void push_value(const ByteBuffer& bb);
 
 		void begin_array(size_t size);
 		void begin_map(size_t sizeInPairs);
@@ -255,6 +257,15 @@ namespace cbor {
 	inline void CborEncoder::push_value(const uint8_t* s, size_t len) {
 		push_pos_integer(0b010, len);
 		write(s, len);
+	}
+
+	inline void CborEncoder::push_value(const TextBuffer& tb) {
+		push_pos_integer(0b011, tb.len);
+		write((const uint8_t*)tb.buf, tb.len);
+	}
+	inline void CborEncoder::push_value(const ByteBuffer& bb) {
+		push_pos_integer(0b010, bb.len);
+		write((const uint8_t*)bb.buf, bb.len);
 	}
 
 	// WARNING: Once again, we assume the host machine is little-endian.
