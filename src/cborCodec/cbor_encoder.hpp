@@ -121,7 +121,7 @@ namespace cbor {
 		void push_value(Null);
 
 		// Text string.
-		void push_value(const std::string& s);
+		// void push_value(const std::string& s); // Already captured by TextBuffer
 		void push_value(const char* s, size_t len);
 		void push_value(const TextBuffer& tb);
 
@@ -246,10 +246,12 @@ namespace cbor {
 		write(byte{0b111'11111});
 	}
 
+	/*
 	inline void CborEncoder::push_value(const std::string& s) {
 		push_pos_integer(0b011, s.length());
 		write((const uint8_t*)s.data(), s.length());
 	}
+	*/
 	inline void CborEncoder::push_value(const char* s, size_t len) {
 		push_pos_integer(0b011, len);
 		write((const uint8_t*)s, len);
