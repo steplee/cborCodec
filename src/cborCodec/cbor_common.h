@@ -131,6 +131,13 @@ namespace cbor {
 		{
 		}
 
+		inline TypedArrayBuffer(const float* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eFloat32) {}
+		inline TypedArrayBuffer(const double* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eFloat64) {}
+		inline TypedArrayBuffer(const uint8_t* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eUInt8) {}
+		inline TypedArrayBuffer(const int32_t* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eInt32) {}
+		inline TypedArrayBuffer(const int64_t* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eInt64) {}
+		inline TypedArrayBuffer(const uint64_t* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eUInt64) {}
+
         uint8_t endianness : 1; // 0 big, 1 little
 
 
