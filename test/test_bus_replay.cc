@@ -6,6 +6,8 @@
 #include "cborCodec/cbor_parser.hpp"
 #include "cborCodec/cbor_encoder.hpp"
 
+#include "json_printer.hpp"
+
 // Not a great API -- it needs some thought.
 
 
@@ -301,52 +303,92 @@ namespace {
 
 TEST(BusMessageVisitor, One) {
 
-	CborEncoder encoder;
+	unlink("/tmp/test.cbor");
 
+	auto write = [](CborEncoder& encoder) {
+		std::vector<MessageVariant> msgs;
+		msgs.push_back(Message1{
+				.tstamp = 1,
+				.field1 = 100000,
+				.field2 = 1,
+				.field3 = 1,
+				.field4 = "the first message",
+		});
+		msgs.push_back(Message2{
+				.tstamp = 2,
+				.field0 = {101,102,103,104, 105,106,107,108},
+				.field1 = 100000,
+				.field2 = 2,
+				.field3 = 2,
+				.field4 = "the second message",
+		});
 
-	std::vector<MessageVariant> msgs;
-	msgs.push_back(Message1{
-			.tstamp = 1,
-			.field1 = 100000,
-			.field2 = 1,
-			.field3 = 1,
-			.field4 = "the first message",
-	});
-	msgs.push_back(Message2{
-			.tstamp = 2,
-			.field0 = {101,102,103,104, 105,106,107,108},
-			.field1 = 100000,
-			.field2 = 2,
-			.field3 = 2,
-			.field4 = "the second message",
-	});
+		encoder.begin_map(2);
 
-	encoder.begin_map(2);
+		encoder.push_value(std::string{"metadata"});
+		encoder.push_value(ApplicationMetadata{.helloMessage="Hello World"});
 
-	encoder.push_value(std::string{"metadata"});
-	encoder.push_value(ApplicationMetadata{.helloMessage="Hello World"});
-
-	encoder.push_value(std::string{"messages"});
-	encoder.begin_map(kIndefiniteLength);
-	for (auto& msg : msgs) {
-		if (std::holds_alternative<Message1>(msg)) {
-			encoder.push_value((uint8_t)std::get<Message1>(msg).getMessageTag());
-			encoder.push_value(std::get<Message1>(msg));
+		encoder.push_value(std::string{"messages"});
+		encoder.begin_map(kIndefiniteLength);
+		for (auto& msg : msgs) {
+			if (std::holds_alternative<Message1>(msg)) {
+				encoder.push_value((uint8_t)std::get<Message1>(msg).getMessageTag());
+				encoder.push_value(std::get<Message1>(msg));
+			}
+			else if (std::holds_alternative<Message2>(msg)) {
+				encoder.push_value((uint8_t)std::get<Message2>(msg).getMessageTag());
+				encoder.push_value(std::get<Message2>(msg));
+			}
+			else assert(false);
 		}
-		else if (std::holds_alternative<Message2>(msg)) {
-			encoder.push_value((uint8_t)std::get<Message2>(msg).getMessageTag());
-			encoder.push_value(std::get<Message2>(msg));
+
+		encoder.end_indefinite();
+
+		std::vector<uint8_t> encoded = encoder.finish();
+		if (encoded.size() != 0) {
+			std::ofstream ofs("/tmp/test1.cbor", std::ios_base::binary);
+			ofs.write((char*)encoded.data(), encoded.size());
 		}
-		else assert(false);
-	}
 
-	encoder.end_indefinite();
+		// finish() on a OutBinStreamFile yields nothing. So we must actually read the file.
+		if (encoded.size() == 0) {
+			std::ifstream ifs("/tmp/test.cbor");
+			ifs.seekg(0, std::ios_base::end);
+			auto n = ifs.tellg();
+			ifs.seekg(0);
+			encoded.resize(n);
+			ifs.read((char*)encoded.data(), n);
+		}
 
-	std::vector<uint8_t> encoded = encoder.finish();
-	std::cout << " - encoded size " << encoded.size() << "\n";
+		std::cout << " - encoded size " << encoded.size() << "\n";
 
+		{
+			CborParser p(BinStreamBuffer{encoded.data(), encoded.size()});
+
+			Replay v(p);
+			v.run();
+
+			std::vector<MessageVariant> msgs1 = v.msgs;
+			EXPECT_EQ(msgs1.size(), 2);
+			EXPECT_TRUE(std::holds_alternative<Message1>(msgs1[0]));
+			EXPECT_TRUE(std::holds_alternative<Message2>(msgs1[1]));
+		}
+	};
+
+	CborEncoder bufferEncoder;
+	CborEncoder fileEncoder("/tmp/test.cbor");
+
+	// Encode to buffer and to file. Test both AFTER loading them to a buffer.
+	write(bufferEncoder);
+	write(fileEncoder);
+
+	// Now parsing directly from the file.
 	{
-		CborParser p(BinStreamBuffer{encoded.data(), encoded.size()});
+		CborParser p(BinStreamFile{"/tmp/test.cbor"});
+		// std::cout << " - begin\n";
+		// JsonPrinter jp(p);
+		// std::cout << " - jp: " << jp.os << "\n";
+
 		Replay v(p);
 		v.run();
 

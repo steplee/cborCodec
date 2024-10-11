@@ -8,12 +8,8 @@
 #include <vector>
 #include <cstring>
 
-#ifdef CBOR_CODEC_DEBUG
-#define cborPrintf(...) printf(__VA_ARGS__);
-#else
-#define cborPrintf(...)                                                                                                                \
-    { }
-#endif
+// #define cborPrintf(...) printf( __VA_ARGS__ );
+#define cborPrintf(...) {}
 
 namespace cbor {
 
@@ -59,6 +55,9 @@ namespace cbor {
 
 		inline DataBuffer();
 
+		DataBuffer(const DataBuffer& o) = delete;
+		DataBuffer operator=(const DataBuffer& o) = delete;
+
 		inline DataBuffer(DataBuffer&& o) : buf(o.buf), len(o.len), isView(o.isView) {
 			o.isView = false;
 			o.buf = nullptr;
@@ -75,18 +74,20 @@ namespace cbor {
 		}
 
 		// view
-		inline DataBuffer(const uint8_t* data, std::size_t len) : buf(data), len(len), isView(true) {}
+		inline DataBuffer(const uint8_t* data, std::size_t len) : buf(data), len(len), isView(true) {
+		}
 
 		// allocate
-		inline DataBuffer(std::size_t len) {
-			buf = new byte[len];
+		inline DataBuffer(std::size_t len) : len(len), isView(false), buf(new byte[len]) {
 		}
 
 		inline ~DataBuffer() {
 			if (isView) {
-			} else {
+			} else if (buf) {
 				delete[] buf;
 			}
+			buf = 0;
+			len = 0;
 		}
 
 		inline std::size_t size() const { return len; }

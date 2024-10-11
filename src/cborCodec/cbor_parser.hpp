@@ -82,8 +82,12 @@ namespace cbor {
 
 			inline bool valid() const { return isSet; }
 
-            inline bool hasMore(size_t n = 1) const {
-                return !ifs.eof();
+            inline bool hasMore(ssize_t n = 1) {
+				ifs.seekg(n, std::ios_base::cur);
+				ifs.peek(); // ifstream eof not updated unless we read (or peek)
+				bool eof = ifs.eof() or ifs.tellg() == -1;
+				ifs.seekg(-n, std::ios_base::cur);
+                return !eof;
             }
             inline uint8_t nextByte() {
                 assert(hasMore());
@@ -99,15 +103,40 @@ namespace cbor {
             inline DataBuffer nextBytes(size_t n) {
                 assert(hasMore(n));
                 DataBuffer db(n); // allocate + own.
-				ifs.read((char*)&db.buf, n);
+				ifs.read((char*)db.buf, n);
                 return db;
             }
 
-			private:
+            size_t pos () { return ifs.tellg(); }
+
+			// private:
 
 			std::ifstream ifs;
 			bool isSet;
 
+		};
+
+		struct BinStreamUnion {
+			BinStreamBuffer strm1;
+			BinStreamFile   strm2;
+			
+			inline BinStreamUnion(BinStreamBuffer&& s) : strm1(std::move(s)) {}
+			inline BinStreamUnion(BinStreamFile&& s) : strm2(std::move(s)) {}
+
+			inline bool valid() const { return strm1.valid() ? strm1.valid() : strm2.valid(); }
+
+            inline bool hasMore(size_t n = 1) {
+                return strm1.valid() ? strm1.hasMore(n) : strm2.hasMore(n);
+            }
+            inline uint8_t nextByte() {
+                return strm1.valid() ? strm1.nextByte() : strm2.nextByte();
+            }
+            template <class V> inline V nextValue() {
+                return strm1.valid() ? strm1.nextValue<V>() : strm2.nextValue<V>();
+            }
+            inline DataBuffer nextBytes(size_t n) {
+                return strm1.valid() ? strm1.nextBytes(n) : strm2.nextBytes(n);
+            }
 		};
 
         enum class Mode : uint8_t { root, array, map };
@@ -202,14 +231,14 @@ namespace cbor {
 
 	struct CborParser {
 		private:
-		BinStreamBuffer strm1;
-		BinStreamFile   strm2;
+		public:
+		BinStreamUnion strm;
 		std::vector<State> stack = { State{Mode::root}, };
 
 		public:
 
-        inline CborParser(BinStreamBuffer&& strm) : strm1(std::move(strm)) {}
-        inline CborParser(BinStreamFile  && strm) : strm2(std::move(strm)) {}
+        inline CborParser(BinStreamBuffer&& strm) : strm(std::move(strm)) {}
+        inline CborParser(BinStreamFile  && strm) : strm(std::move(strm)) {}
 
 		Item next();
 
@@ -232,8 +261,8 @@ namespace cbor {
 		template <class F>
 		void consumeArray(size_t size, F&& f);
 
-		inline bool hasMore() const {
-			return strm1.hasMore();
+		inline bool hasMore() {
+			return strm.hasMore();
 		}
 		
 	};
@@ -241,7 +270,7 @@ namespace cbor {
 
 	inline Item CborParser::next() {
 
-		if (!strm1.hasMore()) {
+		if (!strm.hasMore()) {
 			return makeItem(End{});
 		}
 		auto depth = stack.back().depth;
@@ -249,12 +278,12 @@ namespace cbor {
 		auto len = stack.back().len;
 		// printf(" - NEXT (d %d|%ld) (s %ld / %ld)\n", depth, stack.size(), seq, len);
 
-        byte b              = strm1.nextByte();
+        byte b              = strm.nextByte();
         byte majorType      = b >> 5;
         byte additionalInfo = b & 0b11111;
-        cborPrintf(" - parse_item() [stackDepth: %d] [curState: %s] [m %d | addInfo %d]\n", stateStack.size(),
-               stateStack.back().mode == Mode::array ? "array"
-               : stateStack.back().mode == Mode::map ? "map"
+        cborPrintf(" - parse_item() [stackDepth: %d] [curState: %s] [m %d | addInfo %d]\n", stack.size(),
+               stack.back().mode == Mode::array ? "array"
+               : stack.back().mode == Mode::map ? "map"
                                                      : "root",
                majorType, additionalInfo);
 
@@ -264,13 +293,13 @@ namespace cbor {
             } else if (additionalInfo >= 24 and additionalInfo <= 27) {
                 size_t v;
                 if (additionalInfo == 24)
-                    v = (strm1.template nextValue<uint8_t>());
+                    v = (strm.template nextValue<uint8_t>());
                 else if (additionalInfo == 25)
-                    v = ntohs(strm1.template nextValue<uint16_t>());
+                    v = ntohs(strm.template nextValue<uint16_t>());
                 else if (additionalInfo == 26)
-                    v = ntohl(strm1.template nextValue<uint32_t>());
+                    v = ntohl(strm.template nextValue<uint32_t>());
                 else if (additionalInfo == 27)
-                    v = ntohll(strm1.template nextValue<uint64_t>());
+                    v = ntohll(strm.template nextValue<uint64_t>());
                 return v;
             } else if (additionalInfo >= 28 and additionalInfo <= 30) {
                 assert(false);
@@ -305,7 +334,7 @@ namespace cbor {
                 throw std::runtime_error("Indefinite length strings are NOT supported by this decoder.");
             }
             // assert(str_len > 0);
-			auto db = strm1.nextBytes(str_len);
+			auto db = strm.nextBytes(str_len);
             return makeItem(ByteBuffer { std::move(db) });
         }
 
@@ -315,9 +344,9 @@ namespace cbor {
                 throw std::runtime_error("Indefinite length strings are NOT supported by this decoder.");
             }
             // assert(str_len > 0);
-			auto db = strm1.nextBytes(str_len);
+			auto db = strm.nextBytes(str_len);
             // vtor.visit_text_string(TextStringView{head, str_len});
-            // cborPrintf(" - Advance with text string view : \"%s\"\n", std::string{TextStringView{head, str_len}}.c_str());
+            cborPrintf(" - Advance with text string view : \"%s\"\n", std::string{TextBuffer{DataBuffer{db.buf,db.len}}.asStringView()}.c_str());
             return makeItem(TextBuffer { std::move(db) });
         }
 
@@ -373,12 +402,12 @@ namespace cbor {
 				else
 					throw std::runtime_error("invalid typed array type.");
 
-                byte byteStringHead = strm1.nextByte();
+                byte byteStringHead = strm.nextByte();
                 if (byteStringHead >> 5 != 0b010) { throw std::runtime_error("while parsing typed array, expected byte string."); }
                 byte byteStringAdditionalInfo = byteStringHead & 0b11111;
                 size_t blen                   = get_uint_for_length(byteStringAdditionalInfo);
 
-				auto db = strm1.nextBytes(blen);
+				auto db = strm.nextBytes(blen);
 				TypedArrayBuffer tav(std::move(db), type, endian);
                 return makeItem(std::move(tav));
             } else {
@@ -396,16 +425,16 @@ namespace cbor {
 			} else if (additionalInfo < 24) {
                 return makeItem(additionalInfo);
             } else if (additionalInfo == 24) {
-                byte sval = strm1.nextByte();
+                byte sval = strm.nextByte();
                 return makeItem(sval);
             } else if (additionalInfo == 25) {
                 assert(false && "half floats are not supported.");
             } else if (additionalInfo == 26) {
-                float v = strm1.template nextValue<float>();
+                float v = strm.template nextValue<float>();
 				v = ntoh(v);
                 return makeItem(v);
             } else if (additionalInfo == 27) {
-                double v = strm1.template nextValue<double>();
+                double v = strm.template nextValue<double>();
 				v = ntoh(v);
                 return makeItem(v);
             } else if (additionalInfo == 28 or additionalInfo == 29 or additionalInfo == 30) {
@@ -440,11 +469,11 @@ namespace cbor {
 	inline void CborParser::consumeMap(size_t size, F&& f) {
 		// printf(" - begin map %d\n", (int)size);
 		for (size_t i=0; i<size; i++) {
-			auto key = this->next();
+			auto key { this->next() };
 			// if (std::holds_alternative<EndMap>(key.value)) break;
 			if (std::holds_alternative<End>(key.value)) break;
 
-			auto val = this->next();
+			auto val { this->next() };
 			f(std::move(key), std::move(val));
 		}
 		// f(makeItem(EndMap{}),makeItem(EndMap{}));
@@ -454,7 +483,7 @@ namespace cbor {
 	inline void CborParser::consumeArray(size_t size, F&& f) {
 		for (size_t i=0; i<size; i++) {
 
-			auto val = this->next();
+			auto val { this->next() };
 			// if (std::holds_alternative<EndArray>(val.value)) break;
 			if (std::holds_alternative<End>(val.value)) break;
 			f(std::move(val));
