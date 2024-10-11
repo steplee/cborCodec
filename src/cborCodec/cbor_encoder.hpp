@@ -151,7 +151,7 @@ namespace cbor {
 			t.encodeCbor(*this);
 		}
 
-		private:
+		// private:
 
 
 		void push_pos_integer(byte majorType, uint64_t v);
