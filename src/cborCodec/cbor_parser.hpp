@@ -109,7 +109,7 @@ namespace cbor {
 
             size_t pos () { return ifs.tellg(); }
 
-			// private:
+			private:
 
 			std::ifstream ifs;
 			bool isSet;

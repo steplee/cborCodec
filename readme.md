@@ -13,9 +13,10 @@ Benchmarks and more tests to follow...
 ### Status
 ##### TODO
 ###### Features
- - [ ] Add file-output-stream support for `CborEncoder` by having it take another template param.
- - [ ] Come up with a way to support parser combinators -- possibly requiring changing the API -- and add docs for it.
- - [ ] Handle the "simple values" for `true`, `false`, and `null`.
+ - [x] Add file-output-stream support for `CborEncoder` by having it take another template param.
+ - [x] Come up with a way to support parser combinators -- possibly requiring changing the API -- and add docs for it.
+ - [x] Handle the "simple values" for `true`, `false`, and `null`.
+ - [ ] Allow `BinStreamFile` to compress with snappy or gzip.
 
 ###### Tests & Docs
  - [x] Test against large json file
