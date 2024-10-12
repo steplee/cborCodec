@@ -13,6 +13,7 @@
 
 #include <arpa/inet.h>
 #include <cstring>
+#include <optional>
 
 #include "cbor_common.h"
 
@@ -109,7 +110,7 @@ namespace cbor {
 
             size_t pos () { return ifs.tellg(); }
 
-			private:
+			// private:
 
 			std::ifstream ifs;
 			bool isSet;
@@ -222,11 +223,51 @@ namespace cbor {
 			else if (std::holds_alternative<EndMap>(value)) printf("}endMap");
 			else printf("<unknown>");
 		}
+
 		inline void print(const char* before, const char* after) const {
 			printf("%s", before);
 			print();
 			printf("%s", after);
 		}
+
+		template<class T>
+		inline bool is() const {
+			return std::holds_alternative<T>(value);
+		}
+
+		inline std::optional<int64_t> asInt() const {
+			if (this->is<int64_t>())
+				return std::get<int64_t>(value);
+			if (this->is<uint64_t>())
+				return std::get<uint64_t>(value);
+			if (this->is<int64_t>())
+				return std::get<uint8_t>(value);
+			return {};
+		}
+		inline std::optional<uint64_t> asUInt() const {
+			if (this->is<int64_t>())
+				return std::get<int64_t>(value);
+			if (this->is<uint64_t>())
+				return std::get<uint64_t>(value);
+			if (this->is<int64_t>())
+				return std::get<uint8_t>(value);
+			return {};
+		}
+		inline std::optional<float> asFloat() const {
+			if (this->is<float>()) return std::get<float>(value);
+			if (this->is<double>()) return std::get<double>(value);
+			return {};
+		}
+		inline std::optional<double> asDouble() const {
+			if (this->is<float>()) return std::get<float>(value);
+			if (this->is<double>()) return std::get<double>(value);
+			return {};
+		}
+		inline std::optional<std::string_view> asStringView() const {
+			if (is<TextBuffer>()) return std::get<TextBuffer>(value).asStringView();
+			return {};
+		}
+
 	};
 
 	struct CborParser {
