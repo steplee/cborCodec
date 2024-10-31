@@ -240,7 +240,7 @@ namespace cbor {
 				return std::get<int64_t>(value);
 			if (this->is<uint64_t>())
 				return std::get<uint64_t>(value);
-			if (this->is<int64_t>())
+			if (this->is<uint8_t>())
 				return std::get<uint8_t>(value);
 			return {};
 		}
