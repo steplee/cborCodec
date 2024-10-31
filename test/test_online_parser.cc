@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
 #include "cborCodec/cbor_parser.hpp"
+#include "cborCodec/cbor_encoder.hpp"
+
 #include "json_printer.hpp"
 
 using namespace cbor;
@@ -136,5 +138,36 @@ TEST(Parser, ConsumeMapButStop) {
 
 	EXPECT_EQ(nProcessedWithoutStop, 2);
 	EXPECT_EQ(nProcessedWithStop, 1);
+
+}
+
+TEST(Parser, ConsumeInnerMap) {
+
+	CborEncoder encoder;
+	encoder.begin_map(2);
+
+	encoder.push_value("key0");
+	encoder.push_value("val0");
+
+	encoder.push_value("map1");
+	encoder.begin_map(1);
+	encoder.push_value("innerKey");
+	encoder.push_value("innerVal");
+	
+	auto data = encoder.finish();
+
+	{
+		CborParser p(BinStreamBuffer{data.data(), data.size()});
+		p.next();
+		int i = 0;
+		p.consumeMap(2, [&](Item&& k, Item&& v) {
+			if (i == 1) {
+				p.consumeMap(1, [&](Item&& k, Item&& v) {
+					printf("inner:: %s: %s\n", k.toString().c_str(), v.toString().c_str());
+				});
+			}
+			i++;
+		});
+	}
 
 }

@@ -106,6 +106,9 @@ namespace cbor {
 	};
 	struct ByteBuffer : public DataBuffer {
 		inline byte operator[](std::size_t i) const { return buf[i]; }
+		inline std::vector<uint8_t> clone() const {
+			return std::vector<uint8_t>((const uint8_t*)buf, (const uint8_t*)buf + size());
+		}
 	};
 
     struct TypedArrayBuffer : public DataBuffer {
