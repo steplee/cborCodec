@@ -77,3 +77,64 @@ TEST(Parser, Simple) {
 	printf(" - json:\n%s\n", jp.os.c_str());
 
 }
+
+TEST(Parser, ConsumeMapButStop) {
+
+	std::vector<uint8_t> data {
+		// Map with map with an array
+		0b101'00001,
+			0b011'00101,
+				(uint8_t)'o',
+				(uint8_t)'u',
+				(uint8_t)'t',
+				(uint8_t)'e',
+				(uint8_t)'r',
+
+			0b101'00001,
+				0b000'00001,
+				0b100'11111,
+					0b000'00001,
+					0b111'11111,
+
+			0b011'00110,
+				(uint8_t)'o',
+				(uint8_t)'u',
+				(uint8_t)'t',
+				(uint8_t)'e',
+				(uint8_t)'r',
+				(uint8_t)'2',
+
+			0b101'00001,
+				0b000'00001,
+				0b100'11111,
+					0b000'00001,
+					0b111'11111,
+	};
+
+	using namespace cbor;
+
+	int nProcessedWithoutStop = 0;
+	int nProcessedWithStop = 0;
+
+	{
+		CborParser p(BinStreamBuffer{data.data(), data.size()});
+
+		p.next();
+		p.consumeMap(2, [&](Item&& k, Item&& v) {
+				nProcessedWithoutStop++;
+		});
+	}
+	{
+		CborParser p(BinStreamBuffer{data.data(), data.size()});
+
+		p.next();
+		p.consumeMap(2, [&](Item&& k, Item&& v) {
+				nProcessedWithStop++;
+				return false;
+		});
+	}
+
+	EXPECT_EQ(nProcessedWithoutStop, 2);
+	EXPECT_EQ(nProcessedWithStop, 1);
+
+}

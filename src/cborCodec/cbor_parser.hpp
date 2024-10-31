@@ -297,8 +297,10 @@ namespace cbor {
 			return Item { stack , std::move(v) };
 		}
 
+		// NOTE: `F` must take two `Item&&`' and can return either void or bool (false means break out of loop)
 		template <class F>
 		void consumeMap(size_t size, F&& f);
+
 		template <class F>
 		void consumeArray(size_t size, F&& f);
 
@@ -515,7 +517,14 @@ namespace cbor {
 			if (std::holds_alternative<End>(key.value)) break;
 
 			auto val { this->next() };
-			f(std::move(key), std::move(val));
+
+			using ReturnType = std::invoke_result_t<F, Item&&, Item&&>;
+			if constexpr (std::is_same_v<ReturnType, bool>) {
+				bool keepGoing = f(std::move(key), std::move(val));
+				if (!keepGoing) break;
+			} else {
+				f(std::move(key), std::move(val));
+			}
 		}
 		// f(makeItem(EndMap{}),makeItem(EndMap{}));
 	}
