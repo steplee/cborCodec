@@ -105,6 +105,7 @@ namespace cbor {
 		inline char operator[](std::size_t i) const { return (char )buf[i]; }
 	};
 	struct ByteBuffer : public DataBuffer {
+		using DataBuffer::DataBuffer;
 		inline byte operator[](std::size_t i) const { return buf[i]; }
 		inline std::vector<uint8_t> clone() const {
 			return std::vector<uint8_t>((const uint8_t*)buf, (const uint8_t*)buf + size());
