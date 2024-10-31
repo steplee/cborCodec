@@ -46,7 +46,19 @@ namespace cbor {
 		}
 
 		inline void write(const uint8_t* bytes, size_t len) {
-			if (cursor + len >= data.size()) data.resize(data.size() * 2);
+			// if (cursor + len >= data.size()) data.resize(data.size() * 2);
+			if (cursor + len >= data.size()) {
+				if (data.size() * 2 >= cursor + len)
+					data.resize(data.size() * 2);
+				else {
+					size_t targetSize = data.size() * 2;
+					while (cursor + len >= targetSize) {
+						targetSize *= 2;
+					}
+					data.resize(targetSize);
+				}
+			}
+
 			memcpy(data.data() + cursor, bytes, len);
 			cursor += len;
 		}

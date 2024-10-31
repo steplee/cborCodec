@@ -64,6 +64,7 @@ namespace cbor {
 			o.len = 0;
 		}
 		inline DataBuffer& operator=(DataBuffer&& o) {
+			release();
 			isView = o.isView;
 			buf = o.buf;
 			len = o.len;
@@ -81,13 +82,17 @@ namespace cbor {
 		inline DataBuffer(std::size_t len) : len(len), isView(false), buf(new byte[len]) {
 		}
 
-		inline ~DataBuffer() {
+		inline void release() {
 			if (isView) {
 			} else if (buf) {
 				delete[] buf;
 			}
 			buf = 0;
 			len = 0;
+		}
+
+		inline ~DataBuffer() {
+			release();
 		}
 
 		inline std::size_t size() const { return len; }
@@ -106,9 +111,9 @@ namespace cbor {
 	};
 	struct ByteBuffer : public DataBuffer {
 		using DataBuffer::DataBuffer;
-		inline ByteBuffer() : DataBuffer() {}
+		// inline ByteBuffer() : DataBuffer() {}
 		inline ByteBuffer(DataBuffer&& db) : DataBuffer(std::move(db)) {}
-		inline ByteBuffer(ByteBuffer&& db) : DataBuffer(std::move(db)) {}
+		// inline ByteBuffer(ByteBuffer&& db) : DataBuffer(std::move(db)) {}
 
 		inline byte operator[](std::size_t i) const { return buf[i]; }
 		inline std::vector<uint8_t> clone() const {
