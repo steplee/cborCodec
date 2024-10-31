@@ -107,7 +107,7 @@ namespace cbor {
 	struct ByteBuffer : public DataBuffer {
 		using DataBuffer::DataBuffer;
 		inline ByteBuffer(DataBuffer&& db) : DataBuffer(std::move(db)) {}
-		inline ByteBuffer(ByteBuffer&& db) : ByteBuffer(std::move(db)) {}
+		inline ByteBuffer(ByteBuffer&& db) : DataBuffer(std::move(db)) {}
 
 		inline byte operator[](std::size_t i) const { return buf[i]; }
 		inline std::vector<uint8_t> clone() const {
