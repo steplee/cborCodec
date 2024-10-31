@@ -53,7 +53,7 @@ namespace cbor {
 		std::size_t len = 0;
 		bool isView = true;
 
-		inline DataBuffer();
+		inline DataBuffer() {}
 
 		DataBuffer(const DataBuffer& o) = delete;
 		DataBuffer operator=(const DataBuffer& o) = delete;
