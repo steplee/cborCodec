@@ -134,6 +134,7 @@ TEST(TreeParser, Bytes) {
 	CborParser cp(BinStreamBuffer{data2.data(), data2.size()});
 	Node e = parseOne(cp, cp.next());
 	printf("%s\n", toString(e).c_str());
+
 }
 
 /*

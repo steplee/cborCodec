@@ -155,6 +155,9 @@ namespace cbor {
 		inline TypedArrayBuffer(const int64_t* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eInt64) {}
 		inline TypedArrayBuffer(const uint64_t* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eUInt64) {}
 
+		template <class T, size_t N>
+		inline TypedArrayBuffer(const std::array<T,N>& a) : TypedArrayBuffer(&a[0], N) {}
+
         uint8_t endianness : 1; // 0 big, 1 little
 
 
