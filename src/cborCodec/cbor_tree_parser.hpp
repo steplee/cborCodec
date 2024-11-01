@@ -122,7 +122,7 @@ namespace cbor {
 		inline bool isInvalid() const { return kind == Kind::Invalid; }
 		inline bool isMap() const { return kind == Kind::Map; }
 		inline bool isVec() const { return kind == Kind::Vec; }
-		inline bool isString() const { return kind == Kind::Text; }
+		inline bool isText() const { return kind == Kind::Text; }
 		inline bool isTypedArray() const { return kind == Kind::TypedArray; }
 
 		inline const TypedArrayBuffer& asTypedArray() const {
@@ -188,6 +188,10 @@ namespace cbor {
 			if (kind == Kind::Boolean) return scalar.boolean;
 			assert(false);
 		}
+		inline std::string_view asStringView() const {
+			assert(isText());
+			return text.asStringView();
+		}
 
 		inline size_t size() const {
 			assert(isMap() or isVec());
@@ -209,7 +213,7 @@ namespace cbor {
 		inline const Node& operator[](std::string_view key) const {
 			assert(isMap());
 			for (uint32_t i=0; i<map.size(); i++) {
-				assert(map[i].first.isString());
+				assert(map[i].first.isText());
 				if (map[i].first.text.asStringView() == key) return map[i].second;
 			}
 			throw std::runtime_error("missing key");
@@ -218,7 +222,7 @@ namespace cbor {
 		inline size_t find(std::string_view key) const {
 			assert(isMap());
 			for (uint32_t i=0; i<map.size(); i++) {
-				assert(map[i].first.isString());
+				assert(map[i].first.isText());
 				if (map[i].first.text.asStringView() == key) return i;
 			}
 			return kInvalidLength;
