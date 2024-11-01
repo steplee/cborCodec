@@ -1,5 +1,6 @@
 
 #include "cbor_parser.hpp"
+#include "cbor_encoder.hpp"
 
 //
 // An even higher level of abstraction.
@@ -23,7 +24,7 @@ namespace cbor {
 	};
 
 	struct Node {
-		Union scalar = {};
+		Union scalar;
 
 		TextBuffer text;
 		ByteBuffer bytes;
@@ -32,7 +33,91 @@ namespace cbor {
 		std::vector<Node> vec;
 		std::vector<std::pair<Node,Node>> map;
 
-		Kind kind = Kind::Invalid;
+		Kind kind;
+
+
+
+		inline Node() : kind(Kind::Invalid), scalar({}) {}
+		inline static Node fromInt(int64_t x) {
+			Node out;
+			out.scalar.int64 = x;
+			out.kind = Kind::Int64;
+			return out;
+		}
+		inline static Node fromUint(uint64_t x) {
+			Node out;
+			out.scalar.uint64 = x;
+			out.kind = Kind::Uint64;
+			return out;
+		}
+		inline static Node fromByte(uint8_t x) {
+			Node out;
+			out.scalar.byte = x;
+			out.kind = Kind::Byte;
+			return out;
+		}
+		inline static Node fromFloat(float x) {
+			Node out;
+			out.scalar.f32 = x;
+			out.kind = Kind::F32;
+			return out;
+		}
+		inline static Node fromDouble(double x) {
+			Node out;
+			out.scalar.f64 = x;
+			out.kind = Kind::F64;
+			return out;
+		}
+		inline static Node fromBool(bool x) {
+			Node out;
+			out.scalar.boolean = x;
+			out.kind = Kind::Boolean;
+			return out;
+		}
+		inline static Node fromMap(std::vector<std::pair<Node,Node>>&& map) {
+			Node out;
+			out.map = std::move(map);
+			out.kind = Kind::Map;
+			return out;
+		}
+		inline static Node fromVec(std::vector<Node>&& vec) {
+			Node out;
+			out.vec = std::move(vec);
+			out.kind = Kind::Vec;
+			return out;
+		}
+		inline static Node fromText(std::string_view s) {
+			Node out;
+			out.text = TextBuffer{s};
+			out.kind = Kind::Text;
+			return out;
+		}
+		inline static Node fromText(TextBuffer&& tb) {
+			Node out;
+			out.text = std::move(tb);
+			out.kind = Kind::Text;
+			return out;
+		}
+		inline static Node fromBytes(const uint8_t* data, size_t len) {
+			Node out;
+			out.text = ByteBuffer{data,len};
+			out.kind = Kind::Bytes;
+			return out;
+		}
+		inline static Node fromBytes(ByteBuffer&& bb) {
+			Node out;
+			out.text = std::move(bb);
+			out.kind = Kind::Bytes;
+			return out;
+		}
+		inline static Node fromTypedArray(TypedArrayBuffer&& tab) {
+			Node out;
+			out.text = std::move(tab);
+			out.kind = Kind::TypedArray;
+			return out;
+		}
+
+
 
 		bool isInvalid() const { return kind == Kind::Invalid; }
 		bool isMap() const { return kind == Kind::Map; }
@@ -51,7 +136,7 @@ namespace cbor {
 			assert(false);
 		}
 
-		int64_t asUint() const {
+		uint64_t asUint() const {
 			assert(!isMap() and !isVec());
 			assert(!isInvalid());
 			if (kind == Kind::Byte) return scalar.byte;
@@ -126,10 +211,11 @@ namespace cbor {
 
 	};
 
+
 	Node parseMap(CborParser& p, BeginMap&& begin);
 	Node parseArray(CborParser& p, BeginArray&& begin);
-
 	Node parseOne(CborParser& p, Item&& v) {
+		/*
 		Node out;
 		if (v.is<uint8_t>()) {
 			out.kind = Kind::Byte;
@@ -176,6 +262,16 @@ namespace cbor {
 			out.tab = std::move(v.expect<TypedArrayBuffer>());
 			return out;
 		}
+		*/
+		if (v.is<uint8_t>()) return Node::fromByte(v.expect<uint8_t>());
+		if (v.is<int64_t>()) return Node::fromInt(v.expect<int64_t>());
+		if (v.is<uint64_t>()) return Node::fromUint(v.expect<uint64_t>());
+		if (v.is<float>()) return Node::fromFloat(v.expect<float>());
+		if (v.is<double>()) return Node::fromFloat(v.expect<double>());
+		if (v.is<bool>()) return Node::fromFloat(v.expect<bool>());
+		if (v.is<TextBuffer>()) return Node::fromText(std::move(v.expect<TextBuffer>()));
+		if (v.is<ByteBuffer>()) return Node::fromBytes(std::move(v.expect<ByteBuffer>()));
+		if (v.is<TypedArrayBuffer>()) return Node::fromTypedArray(std::move(v.expect<TypedArrayBuffer>()));
 
 		if (v.is<BeginMap>()) {
 			return parseMap(p, std::move(v.expect<BeginMap>()));
@@ -219,72 +315,51 @@ namespace cbor {
 
 		return out;
 	}
+	
+	void encodeOne(CborEncoder& ce, const Node& node) {
+		assert(!node.isInvalid());
 
-
-	/*
-	using Node = std::variant<
-		uint8_t, int64_t, uint64_t,
-		float, double,
-		bool,
-		TextBuffer, ByteBuffer, TypedArrayBuffer,
-		std::vector<Node>,
-		std::vector<std::pair<Node,Node>>,
-		>;
-
-	Node parseTop(CborParser&& p) {
-		return parseMap(p, p.next());
-	}
-
-	Node parseOne(CborParser&& p, Item&& v) {
-		if (v.is<uint8_t>()) return v.expect<uint8_t>();
-		if (v.is<int64_t>()) return v.expect<int64_t>();
-		if (v.is<uint64_t>()) return v.expect<uint64_t>();
-		if (v.is<float>()) return v.expect<float>();
-		if (v.is<double>()) return v.expect<double>();
-		if (v.is<bool>()) return v.expect<bool>();
-		if (v.is<TextBuffer>()) return v.expect<TextBuffer>();
-		if (v.is<ByteBuffer>()) return v.expect<ByteBuffer>();
-		if (v.is<TypedArrayBuffer>()) return v.expect<TypedArrayBuffer>();
-		if (v.is<BeginMap>()) {
-			return parseMap(p, v.expect<BeginMap>());
+		if (node.isMap()) {
+			ce.begin_map(node.size());
+			for (const auto &kv : node.map) {
+				encodeOne(ce, kv.first);
+				encodeOne(ce, kv.second);
+			}
 		}
-		if (v.is<BeginArray>()) {
-			return parseArray(p, v.expect<BeginArray>());
+		else if (node.isVec()) {
+			ce.begin_array(node.size());
+			for (const auto &v : node.vec) {
+				encodeOne(ce, v);
+			}
 		}
-		assert(false);
+
+		// Invalid, Byte, Int64, Uint64, F32, F64, Boolean, Text, Bytes, TypedArray, Map, Vec
+		else if (node.kind == Kind::Byte) ce.push_value(node.scalar.byte);
+		else if (node.kind == Kind::Int64) ce.push_value(node.scalar.int64);
+		else if (node.kind == Kind::Uint64) ce.push_value(node.scalar.uint64);
+		else if (node.kind == Kind::F32) ce.push_value(node.scalar.f32);
+		else if (node.kind == Kind::F64) ce.push_value(node.scalar.f64);
+		else if (node.kind == Kind::Boolean) ce.push_value(node.scalar.boolean);
+		else if (node.kind == Kind::Text) ce.push_value(node.text);
+		else if (node.kind == Kind::Bytes) ce.push_value(node.bytes);
+		else if (node.kind == Kind::TypedArray) ce.push_value(node.tab);
+
+		else {
+			throw std::runtime_error("impossible: failed to match node kind.");
+		}
 	}
 
-	Node parseMap(CborParser&& p, BeginMap&& begin) {
-		// auto top = p.next();
-		// auto len = top.expect<BeginMap>().size;
-		auto len = begin.size;
 
-		std::vector<std::pair<Node,Node>> out;
-		if (len != kInvalidLength) out.reserve(len);
 
-		p.consumeMap(len, [&](Item&& k, Item&& v) {
-			TextBuffer key { k.expect<TextBuffer>() };
-			Node value { parseOne(p) }
-			out.emplace_back(std::make_pair(std::move(key), std::move(value)));
-		});
 
-		return out;
+	Node parseTree(CborParser&& p) {
+		auto it = p.next();
+		return parseOne(p, std::move(it));
 	}
 
-	Node parseArray(CborParser&& p, BeginArray&& begin) {
-		auto len = begin.size;
-
-		std::vector<std::pair<Node,Node>> out;
-		if (len != kInvalidLength) out.reserve(len);
-
-		p.consumeArray(len, [&](Item&& v) {
-			Node value { parseOne(v) };
-			out.emplace_back(std::move(value));
-		});
-
-		return out;
+	void encodeTree(CborEncoder& ce, const Node& root) {
+		encodeOne(ce, root);
 	}
-	*/
 
 
 }

@@ -102,6 +102,7 @@ namespace cbor {
 		using DataBuffer::DataBuffer;
 		inline TextBuffer(DataBuffer&& db) : DataBuffer(std::move(db)) {}
 		inline TextBuffer(const std::string& s) : DataBuffer((const uint8_t*)s.data(), s.length()) {}
+		inline TextBuffer(const std::string_view& s) : DataBuffer((const uint8_t*)s.data(), s.length()) {}
 		inline TextBuffer(const char* s) : DataBuffer((const uint8_t*)s, strlen(s)) {}
 
 		std::string_view asStringView() const {

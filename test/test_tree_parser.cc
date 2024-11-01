@@ -85,8 +85,6 @@ TEST(TreeParser, Simple) {
 
 	auto data = encoder.finish();
 
-	Union u;
-
 	{
 		CborParser cp(BinStreamBuffer{data.data(), data.size()});
 
@@ -99,6 +97,26 @@ TEST(TreeParser, Simple) {
 
 		auto& ie = e["key3"][1];
 		printf("innerElem: %s\n", toString(ie).c_str());
+
+		CborEncoder encoder2;
+		encodeTree(encoder2, e);
+		auto data2 = encoder2.finish();
+
+
+		// Repeating the test with the representation that was re-encoded.
+		{
+			CborParser cp(BinStreamBuffer{data2.data(), data2.size()});
+
+			Node e = parseOne(cp, cp.next());
+			printf("e.kind: %d\n", e.kind);
+			printf("%s\n", toString(e).c_str());
+
+			auto& key1_value = e["key1"];
+			printf("key1_value: %s\n", toString(key1_value).c_str());
+
+			auto& ie = e["key3"][1];
+			printf("innerElem: %s\n", toString(ie).c_str());
+		}
 	}
 
 }
