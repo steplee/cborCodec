@@ -93,6 +93,12 @@ TEST(TreeParser, Simple) {
 		Node e = parseOne(cp, cp.next());
 		printf("e.kind: %d\n", e.kind);
 		printf("%s\n", toString(e).c_str());
+
+		auto& key1_value = e["key1"];
+		printf("key1_value: %s\n", toString(key1_value).c_str());
+
+		auto& ie = e["key3"][1];
+		printf("innerElem: %s\n", toString(ie).c_str());
 	}
 
 }

@@ -23,7 +23,7 @@ namespace cbor {
 	};
 
 	struct Node {
-		Union scalar;
+		Union scalar = {};
 
 		TextBuffer text;
 		ByteBuffer bytes;
@@ -33,6 +33,50 @@ namespace cbor {
 		std::vector<std::pair<Node,Node>> map;
 
 		Kind kind = Kind::Invalid;
+
+		bool isInvalid() const { return kind == Kind::Invalid; }
+		bool isMap() const { return kind == Kind::Map; }
+		bool isVec() const { return kind == Kind::Vec; }
+		bool isString() const { return kind == Kind::Text; }
+
+		int64_t asInt() const {
+			assert(!isMap() and !isVec());
+			assert(!isInvalid());
+			if (kind == Kind::Byte) return scalar.byte;
+			if (kind == Kind::Int64) return scalar.int64;
+			if (kind == Kind::Uint64) return scalar.uint64;
+			if (kind == Kind::F32) return scalar.f32;
+			if (kind == Kind::F64) return scalar.f64;
+			if (kind == Kind::Boolean) return scalar.boolean;
+			assert(false);
+		}
+
+		inline size_t size() const {
+			assert(isMap() or isVec());
+			return isMap() ? map.size() : vec.size();
+		}
+
+		inline const Node& operator[](size_t i) const {
+			if (isVec()) {
+				assert(i < vec.size());
+				return vec[i];
+			}
+			if (isMap()) {
+				assert(false && "todo: indexing a map with an integer is not supported yet.");
+			}
+			throw std::runtime_error("can only index a Node with an integer if it is a map or vec");
+		}
+
+		inline const Node& operator[](std::string_view key) const {
+			assert(isMap());
+			for (uint32_t i=0; i<map.size(); i++) {
+				assert(map[i].first.isString());
+				if (map[i].first.text.asStringView() == key) return map[i].second;
+			}
+			throw std::runtime_error("missing key");
+		}
+
+
 	};
 
 	Node parseMap(CborParser& p, BeginMap&& begin);
