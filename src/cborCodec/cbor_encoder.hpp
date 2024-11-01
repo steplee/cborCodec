@@ -64,8 +64,9 @@ namespace cbor {
 		}
 
 		inline std::vector<uint8_t> finish() {
-			data.resize(cursor);
-			return std::move(data);
+			// data.resize(cursor);
+			// return std::move(data);
+			return data;
 		}
 
 		inline bool valid() const { return cursor != kInvalidCursor; }
