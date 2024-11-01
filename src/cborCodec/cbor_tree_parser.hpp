@@ -100,13 +100,13 @@ namespace cbor {
 		}
 		inline static Node fromBytes(const uint8_t* data, size_t len) {
 			Node out;
-			out.text = ByteBuffer{data,len};
+			out.bytes = std::move(ByteBuffer{data,len});
 			out.kind = Kind::Bytes;
 			return out;
 		}
 		inline static Node fromBytes(ByteBuffer&& bb) {
 			Node out;
-			out.text = std::move(bb);
+			out.bytes = std::move(bb);
 			out.kind = Kind::Bytes;
 			return out;
 		}

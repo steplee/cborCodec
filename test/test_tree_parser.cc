@@ -37,7 +37,7 @@ using namespace cbor;
 				s = std::string{e.text.asStringView()};
 				break;
 			case Kind::Bytes:
-				s = "(bytes)";
+				s = "(bytes " + std::to_string(e.bytes.len) + ")";
 				break;
 			case Kind::Vec:
 				s = "[\n";
@@ -118,7 +118,22 @@ TEST(TreeParser, Simple) {
 			printf("innerElem: %s\n", toString(ie).c_str());
 		}
 	}
+}
 
+TEST(TreeParser, Bytes) {
+
+	uint8_t ptr[8] = {1,2,3,4,5,6,7,8};
+
+	Node n = Node::fromBytes(ByteBuffer{ptr,8});
+
+
+	CborEncoder encoder2;
+	encodeTree(encoder2, n);
+	auto data2 = encoder2.finish();
+
+	CborParser cp(BinStreamBuffer{data2.data(), data2.size()});
+	Node e = parseOne(cp, cp.next());
+	printf("%s\n", toString(e).c_str());
 }
 
 /*
