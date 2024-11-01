@@ -149,12 +149,12 @@ namespace cbor {
 
 		inline TypedArrayBuffer() : endianness(1) {}
 
-		inline TypedArrayBuffer(const float* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eFloat32) {}
-		inline TypedArrayBuffer(const double* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eFloat64) {}
-		inline TypedArrayBuffer(const uint8_t* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eUInt8) {}
-		inline TypedArrayBuffer(const int32_t* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eInt32) {}
-		inline TypedArrayBuffer(const int64_t* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eInt64) {}
-		inline TypedArrayBuffer(const uint64_t* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eUInt64) {}
+		inline TypedArrayBuffer(const float* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eFloat32), endianness(1) {}
+		inline TypedArrayBuffer(const double* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eFloat64), endianness(1) {}
+		inline TypedArrayBuffer(const uint8_t* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eUInt8), endianness(1) {}
+		inline TypedArrayBuffer(const int32_t* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eInt32), endianness(1) {}
+		inline TypedArrayBuffer(const int64_t* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eInt64), endianness(1) {}
+		inline TypedArrayBuffer(const uint64_t* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eUInt64), endianness(1) {}
 
 		template <class T, size_t N>
 		inline TypedArrayBuffer(const std::array<T,N>& a) : TypedArrayBuffer(&a[0], N) {}
