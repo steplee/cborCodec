@@ -7,6 +7,7 @@
 #include <type_traits>
 #include <vector>
 #include <cstring>
+#include <array>
 
 // #define cborPrintf(...) printf( __VA_ARGS__ );
 #define cborPrintf(...) {}
