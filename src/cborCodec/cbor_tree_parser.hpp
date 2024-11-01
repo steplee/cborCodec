@@ -51,6 +51,53 @@ namespace cbor {
 			assert(false);
 		}
 
+		int64_t asUint() const {
+			assert(!isMap() and !isVec());
+			assert(!isInvalid());
+			if (kind == Kind::Byte) return scalar.byte;
+			if (kind == Kind::Int64) return scalar.int64;
+			if (kind == Kind::Uint64) return scalar.uint64;
+			if (kind == Kind::F32) return scalar.f32;
+			if (kind == Kind::F64) return scalar.f64;
+			if (kind == Kind::Boolean) return scalar.boolean;
+			assert(false);
+		}
+
+		bool asBool() const {
+			assert(!isMap() and !isVec());
+			assert(!isInvalid());
+			if (kind == Kind::Boolean) return scalar.boolean;
+			if (kind == Kind::Byte) return scalar.byte;
+			if (kind == Kind::Int64) return scalar.int64;
+			if (kind == Kind::Uint64) return scalar.uint64;
+			if (kind == Kind::F32) return scalar.f32;
+			if (kind == Kind::F64) return scalar.f64;
+			assert(false);
+		}
+
+		float asFloat32() const {
+			assert(!isMap() and !isVec());
+			assert(!isInvalid());
+			if (kind == Kind::Byte) return scalar.byte;
+			if (kind == Kind::Int64) return scalar.int64;
+			if (kind == Kind::Uint64) return scalar.uint64;
+			if (kind == Kind::F32) return scalar.f32;
+			if (kind == Kind::F64) return scalar.f64;
+			if (kind == Kind::Boolean) return scalar.boolean;
+			assert(false);
+		}
+		double asFloat64() const {
+			assert(!isMap() and !isVec());
+			assert(!isInvalid());
+			if (kind == Kind::Byte) return scalar.byte;
+			if (kind == Kind::Int64) return scalar.int64;
+			if (kind == Kind::Uint64) return scalar.uint64;
+			if (kind == Kind::F32) return scalar.f32;
+			if (kind == Kind::F64) return scalar.f64;
+			if (kind == Kind::Boolean) return scalar.boolean;
+			assert(false);
+		}
+
 		inline size_t size() const {
 			assert(isMap() or isVec());
 			return isMap() ? map.size() : vec.size();
