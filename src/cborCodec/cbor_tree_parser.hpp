@@ -112,7 +112,7 @@ namespace cbor {
 		}
 		inline static Node fromTypedArray(TypedArrayBuffer&& tab) {
 			Node out;
-			out.text = std::move(tab);
+			out.tab = std::move(tab);
 			out.kind = Kind::TypedArray;
 			return out;
 		}
