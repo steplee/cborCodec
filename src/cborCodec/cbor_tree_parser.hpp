@@ -123,6 +123,12 @@ namespace cbor {
 		bool isMap() const { return kind == Kind::Map; }
 		bool isVec() const { return kind == Kind::Vec; }
 		bool isString() const { return kind == Kind::Text; }
+		bool isTypedArray() const { return kind == Kind::TypedArray; }
+
+		const TypedArrayBuffer& asTypedArray() const {
+			assert(isTypedArray());
+			return tab;
+		}
 
 		int64_t asInt() const {
 			assert(!isMap() and !isVec());
