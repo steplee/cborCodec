@@ -48,6 +48,7 @@ if get_option('build_tests').enabled()
       'test/test_big_json.cc',
       'test/test_bus_replay.cc',
       'test/test_online_parser.cc',
+      'test/test_tree_parser.cc',
       ),
     dependencies: [gtest_main_dep, cborCodec_dep])
 

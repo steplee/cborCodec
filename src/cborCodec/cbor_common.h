@@ -145,6 +145,8 @@ namespace cbor {
 		{
 		}
 
+		inline TypedArrayBuffer() {}
+
 		inline TypedArrayBuffer(const float* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eFloat32) {}
 		inline TypedArrayBuffer(const double* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eFloat64) {}
 		inline TypedArrayBuffer(const uint8_t* data, size_t len) : DataBuffer((const uint8_t*)data, sizeof(std::remove_pointer_t<decltype(data)>)*len), type(Type::eUInt8) {}
