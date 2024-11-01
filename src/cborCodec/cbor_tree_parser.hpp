@@ -92,7 +92,7 @@ namespace cbor {
 			out.kind = Kind::Text;
 			return out;
 		}
-		inline static Node fromText(TextBuffer&& tb) {
+		inline static Node fromTextBuffer(TextBuffer&& tb) {
 			Node out;
 			out.text = std::move(tb);
 			out.kind = Kind::Text;
@@ -269,7 +269,7 @@ namespace cbor {
 		if (v.is<float>()) return Node::fromFloat(v.expect<float>());
 		if (v.is<double>()) return Node::fromFloat(v.expect<double>());
 		if (v.is<bool>()) return Node::fromFloat(v.expect<bool>());
-		if (v.is<TextBuffer>()) return Node::fromText(std::move(v.expect<TextBuffer>()));
+		if (v.is<TextBuffer>()) return Node::fromTextBuffer(std::move(v.expect<TextBuffer>()));
 		if (v.is<ByteBuffer>()) return Node::fromBytes(std::move(v.expect<ByteBuffer>()));
 		if (v.is<TypedArrayBuffer>()) return Node::fromTypedArray(std::move(v.expect<TypedArrayBuffer>()));
 
