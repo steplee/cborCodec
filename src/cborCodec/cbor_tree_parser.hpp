@@ -205,6 +205,7 @@ namespace cbor {
 			throw std::runtime_error("can only index a Node with an integer if it is a map or vec");
 		}
 
+		// TODO: Allow matching against a Node, not just a strview
 		inline const Node& operator[](std::string_view key) const {
 			assert(isMap());
 			for (uint32_t i=0; i<map.size(); i++) {
@@ -212,6 +213,19 @@ namespace cbor {
 				if (map[i].first.text.asStringView() == key) return map[i].second;
 			}
 			throw std::runtime_error("missing key");
+		}
+
+		inline size_t find(std::string_view key) const {
+			assert(isMap());
+			for (uint32_t i=0; i<map.size(); i++) {
+				assert(map[i].first.isString());
+				if (map[i].first.text.asStringView() == key) return i;
+			}
+			return kInvalidLength;
+		}
+
+		inline bool has(std::string_view key) const {
+			return find(key) != kInvalidLength;
 		}
 
 
