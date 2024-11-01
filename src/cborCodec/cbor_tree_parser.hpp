@@ -119,18 +119,18 @@ namespace cbor {
 
 
 
-		bool isInvalid() const { return kind == Kind::Invalid; }
-		bool isMap() const { return kind == Kind::Map; }
-		bool isVec() const { return kind == Kind::Vec; }
-		bool isString() const { return kind == Kind::Text; }
-		bool isTypedArray() const { return kind == Kind::TypedArray; }
+		inline bool isInvalid() const { return kind == Kind::Invalid; }
+		inline bool isMap() const { return kind == Kind::Map; }
+		inline bool isVec() const { return kind == Kind::Vec; }
+		inline bool isString() const { return kind == Kind::Text; }
+		inline bool isTypedArray() const { return kind == Kind::TypedArray; }
 
-		const TypedArrayBuffer& asTypedArray() const {
+		inline const TypedArrayBuffer& asTypedArray() const {
 			assert(isTypedArray());
 			return tab;
 		}
 
-		int64_t asInt() const {
+		inline int64_t asInt() const {
 			assert(!isMap() and !isVec());
 			assert(!isInvalid());
 			if (kind == Kind::Byte) return scalar.byte;
@@ -142,7 +142,7 @@ namespace cbor {
 			assert(false);
 		}
 
-		uint64_t asUint() const {
+		inline uint64_t asUint() const {
 			assert(!isMap() and !isVec());
 			assert(!isInvalid());
 			if (kind == Kind::Byte) return scalar.byte;
@@ -154,7 +154,7 @@ namespace cbor {
 			assert(false);
 		}
 
-		bool asBool() const {
+		inline bool asBool() const {
 			assert(!isMap() and !isVec());
 			assert(!isInvalid());
 			if (kind == Kind::Boolean) return scalar.boolean;
@@ -166,7 +166,7 @@ namespace cbor {
 			assert(false);
 		}
 
-		float asFloat32() const {
+		inline float asFloat32() const {
 			assert(!isMap() and !isVec());
 			assert(!isInvalid());
 			if (kind == Kind::Byte) return scalar.byte;
@@ -177,7 +177,7 @@ namespace cbor {
 			if (kind == Kind::Boolean) return scalar.boolean;
 			assert(false);
 		}
-		double asFloat64() const {
+		inline double asFloat64() const {
 			assert(!isMap() and !isVec());
 			assert(!isInvalid());
 			if (kind == Kind::Byte) return scalar.byte;
@@ -220,7 +220,7 @@ namespace cbor {
 
 	Node parseMap(CborParser& p, BeginMap&& begin);
 	Node parseArray(CborParser& p, BeginArray&& begin);
-	Node parseOne(CborParser& p, Item&& v) {
+	inline Node parseOne(CborParser& p, Item&& v) {
 		/*
 		Node out;
 		if (v.is<uint8_t>()) {
@@ -288,7 +288,7 @@ namespace cbor {
 		assert(false);
 	}
 
-	Node parseMap(CborParser& p, BeginMap&& begin) {
+	inline Node parseMap(CborParser& p, BeginMap&& begin) {
 		auto len = begin.size;
 
 		Node out;
@@ -306,7 +306,7 @@ namespace cbor {
 		return out;
 	}
 
-	Node parseArray(CborParser& p, BeginArray&& begin) {
+	inline Node parseArray(CborParser& p, BeginArray&& begin) {
 		auto len = begin.size;
 
 		Node out;
@@ -322,7 +322,7 @@ namespace cbor {
 		return out;
 	}
 	
-	void encodeOne(CborEncoder& ce, const Node& node) {
+	inline void encodeOne(CborEncoder& ce, const Node& node) {
 		assert(!node.isInvalid());
 
 		if (node.isMap()) {
@@ -358,12 +358,12 @@ namespace cbor {
 
 
 
-	Node parseTree(CborParser&& p) {
+	inline Node parseTree(CborParser&& p) {
 		auto it = p.next();
 		return parseOne(p, std::move(it));
 	}
 
-	void encodeTree(CborEncoder& ce, const Node& root) {
+	inline void encodeTree(CborEncoder& ce, const Node& root) {
 		encodeOne(ce, root);
 	}
 
