@@ -7,12 +7,20 @@
 // We decode to a tree, from which the user can access items.
 // Buffers are not copied, but viewed.
 //
+// FIXME: Now that this library will be used on binary buffers only (as opposed to files)
+//        I can now have the 3 DataBuffer subclasses be trivial, which would allow
+//        putting them in the Union as well.
+//        Then by implmenting a custom vector type, the `map` and `vec` fields could also
+//        go in the union.
+//        Reducing the size of the `Node` as much as possible will help with perf.
+//
 
 namespace cbor {
 
 	enum class Kind {
 		Invalid, Byte, Int64, Uint64, F32, F64, Boolean, Text, Bytes, TypedArray, Map, Vec
 	};
+
 
 	union Union {
 		uint8_t byte;
@@ -204,7 +212,7 @@ namespace cbor {
 				return vec[i];
 			}
 			if (isMap()) {
-				assert(false && "todo: indexing a map with an integer is not supported yet.");
+				assert(false && "todo: indexing a map with an integer is not supported yet. You may use `getNthKeyValue` though.");
 			}
 			throw std::runtime_error("can only index a Node with an integer if it is a map or vec");
 		}
@@ -230,6 +238,12 @@ namespace cbor {
 
 		inline bool has(std::string_view key) const {
 			return find(key) != kInvalidLength;
+		}
+
+		inline std::pair<Node,Node>& getNthKeyValue(size_t i) {
+			assert(isMap());
+			assert(i >= 0 and i < map.size());
+			return map[i];
 		}
 
 
@@ -358,6 +372,8 @@ namespace cbor {
 		}
 
 		// Invalid, Byte, Int64, Uint64, F32, F64, Boolean, Text, Bytes, TypedArray, Map, Vec
+
+		// NOTE: CborEncoder will compress integers based on size. No need to implement logic here too.
 		else if (node.kind == Kind::Byte) ce.push_value(node.scalar.byte);
 		else if (node.kind == Kind::Int64) ce.push_value(node.scalar.int64);
 		else if (node.kind == Kind::Uint64) ce.push_value(node.scalar.uint64);

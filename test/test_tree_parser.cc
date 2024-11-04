@@ -81,7 +81,7 @@ TEST(TreeParser, Simple) {
 	encoder.push_value("innerElem1");
 
 	encoder.push_value("key4");
-	encoder.push_value("val4");
+	encoder.push_value(int64_t{20});
 
 	auto data = encoder.finish();
 
