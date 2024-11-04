@@ -240,7 +240,7 @@ namespace cbor {
 			return find(key) != kInvalidLength;
 		}
 
-		inline std::pair<Node,Node>& getNthKeyValue(size_t i) {
+		inline const std::pair<Node,Node>& getNthKeyValue(size_t i) const {
 			assert(isMap());
 			assert(i >= 0 and i < map.size());
 			return map[i];
