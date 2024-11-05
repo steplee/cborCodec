@@ -224,7 +224,7 @@ namespace cbor {
 				assert(map[i].first.isText());
 				if (map[i].first.text.asStringView() == key) return map[i].second;
 			}
-			throw std::runtime_error("missing key");
+			throw std::runtime_error("cbor::Node::operator[] missing key: " + std::string(key));
 		}
 
 		inline size_t find(std::string_view key) const {
