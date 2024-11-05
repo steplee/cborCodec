@@ -227,6 +227,7 @@ namespace cbor {
 			throw std::runtime_error("cbor::Node::operator[] missing key: " + std::string(key));
 		}
 
+		/*
 		inline size_t find(std::string_view key) const {
 			assert(isMap());
 			for (uint32_t i=0; i<map.size(); i++) {
@@ -244,6 +245,20 @@ namespace cbor {
 			assert(isMap());
 			assert(i >= 0 and i < map.size());
 			return map[i];
+		}
+		*/
+
+		inline decltype(map)::const_iterator find(std::string_view key) const {
+			assert(isMap());
+			for (uint32_t i=0; i<map.size(); i++) {
+				assert(map[i].first.isText());
+				if (map[i].first.text.asStringView() == key) return map.begin() + i;
+			}
+			return map.end();
+		}
+
+		inline bool has(std::string_view key) const {
+			return find(key) != map.end();
 		}
 
 
