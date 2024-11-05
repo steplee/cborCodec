@@ -288,22 +288,22 @@ namespace cbor {
 	inline void CborEncoder::push_value(const TypedArrayBuffer& tab) {
 		switch (tab.type) {
 			case TypedArrayBuffer::eUInt8:
-				push_typed_array((const uint8_t*)tab.buf, tab.len);
+				push_typed_array((const uint8_t*)tab.buf, tab.elementLength());
 				break;
 			case TypedArrayBuffer::eFloat32:
-				push_typed_array((const float*)tab.buf, tab.len);
+				push_typed_array((const float*)tab.buf, tab.elementLength());
 				break;
 			case TypedArrayBuffer::eFloat64:
-				push_typed_array((const double*)tab.buf, tab.len);
+				push_typed_array((const double*)tab.buf, tab.elementLength());
 				break;
 			case TypedArrayBuffer::eInt32:
-				push_typed_array((const int32_t*)tab.buf, tab.len);
+				push_typed_array((const int32_t*)tab.buf, tab.elementLength());
 				break;
 			case TypedArrayBuffer::eInt64:
-				push_typed_array((const int64_t*)tab.buf, tab.len);
+				push_typed_array((const int64_t*)tab.buf, tab.elementLength());
 				break;
 			case TypedArrayBuffer::eUInt64:
-				push_typed_array((const uint64_t*)tab.buf, tab.len);
+				push_typed_array((const uint64_t*)tab.buf, tab.elementLength());
 				break;
 			default:
 				assert(false && "unsupported");
