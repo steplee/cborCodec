@@ -1,3 +1,4 @@
+#pragma once
 
 #include "cbor_parser.hpp"
 #include "cbor_encoder.hpp"
