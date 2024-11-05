@@ -110,6 +110,12 @@ namespace cbor {
 			return std::string_view((const char*)buf, len);
 		}
 		inline char operator[](std::size_t i) const { return (char )buf[i]; }
+
+		inline TextBuffer clone() {
+			TextBuffer out(size());
+			memcpy((void*)out.buf, buf, size());
+			return out;
+		}
 	};
 	struct ByteBuffer : public DataBuffer {
 		using DataBuffer::DataBuffer;
@@ -118,7 +124,14 @@ namespace cbor {
 		// inline ByteBuffer(ByteBuffer&& db) : DataBuffer(std::move(db)) {}
 
 		inline byte operator[](std::size_t i) const { return buf[i]; }
-		inline std::vector<uint8_t> clone() const {
+
+		inline ByteBuffer clone() {
+			ByteBuffer out(size());
+			memcpy((void*)out.buf, buf, size());
+			return out;
+		}
+
+		inline std::vector<uint8_t> cloneAsVec() const {
 			return std::vector<uint8_t>((const uint8_t*)buf, (const uint8_t*)buf + size());
 		}
 	};
@@ -247,6 +260,12 @@ namespace cbor {
             copyTo(vec.begin(), vec.end());
             return vec;
         }
+
+		inline TypedArrayBuffer clone() {
+			DataBuffer out(size());
+			memcpy((void*)out.buf, buf, size());
+			return TypedArrayBuffer{std::move(out), type, endianness};
+		}
     };
 
     // WARNING: TEST THIS.
