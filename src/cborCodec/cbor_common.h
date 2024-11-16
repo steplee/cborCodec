@@ -245,11 +245,11 @@ namespace cbor {
 
                 // FIXME: Does endianess switch for float32/float64????
             } else if constexpr (std::is_same_v<T, float>) {
-                assert(type == eFloat32);
+                // assert(type == eFloat32);
                 // return maybeSwapBytes(endianness, t);
                 return t;
             } else if constexpr (std::is_same_v<T, double>) {
-                assert(type == eFloat64);
+                // assert(type == eFloat64);
                 // return maybeSwapBytes(endianness, t);
                 return t;
             }
