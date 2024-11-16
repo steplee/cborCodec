@@ -417,11 +417,11 @@ namespace cbor {
                 uint8_t ll       = tag & 0b00011;
                 TypedArrayBuffer::Type type;
                 if (floating and ll == 0)
-                    assert(false && "invalid typed array type");
+					throw std::runtime_error("invalid typed array type");
                 else if (floating and ll == 0)
-                    assert(false && "float16 not supported");
+					throw std::runtime_error("float16 not supported");
                 else if (floating and ll == 3)
-                    assert(false && "float128 not supported");
+					throw std::runtime_error("float128 not supported");
                 else if (floating and ll == 1)
                     type = TypedArrayBuffer::eFloat32;
                 else if (floating and ll == 2)
@@ -454,7 +454,7 @@ namespace cbor {
 				TypedArrayBuffer tav(std::move(db), type, endian);
                 return makeItem(std::move(tav));
             } else {
-                assert(false && "unsupported tag data encountered.");
+				throw std::runtime_error("unsupported tag data encountered.");
             }
         }
 
@@ -471,7 +471,7 @@ namespace cbor {
                 byte sval = strm.nextByte();
                 return makeItem(sval);
             } else if (additionalInfo == 25) {
-                assert(false && "half floats are not supported.");
+				throw std::runtime_error("half floats are not supported.");
             } else if (additionalInfo == 26) {
                 float v = strm.template nextValue<float>();
 				v = ntoh(v);
@@ -481,7 +481,7 @@ namespace cbor {
 				v = ntoh(v);
                 return makeItem(v);
             } else if (additionalInfo == 28 or additionalInfo == 29 or additionalInfo == 30) {
-                assert(false && "Not a valid code in Jul 2024");
+				throw std::runtime_error("not supported");
             } else if (additionalInfo == 31) {
 				/*
                 if (stack.back().mode == Mode::array) {
@@ -505,7 +505,7 @@ namespace cbor {
             throw std::runtime_error("what.");
 		}
 
-        assert(false && "impossible");
+		throw std::runtime_error("impossible");
 	}
 
 	template <class F>

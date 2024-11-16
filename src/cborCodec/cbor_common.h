@@ -203,7 +203,20 @@ namespace cbor {
             assert(endianness == 1 and "Only little-endian arrays are supported.");
 
             T t;
-            memcpy(&t, buf + elementSize() * i, elementSize());
+
+			if (type == eFloat32 and std::is_same_v<T, double>) {
+				float tt;
+				memcpy(&tt, buf + elementSize() * i, elementSize());
+				t = tt;
+			} else if (type == eFloat64 and std::is_same_v<T, float>) {
+				double tt;
+				memcpy(&tt, buf + elementSize() * i, elementSize());
+				t = tt;
+			} else {
+				assert(elementSize() == sizeof(T));
+				memcpy(&t, buf + elementSize() * i, elementSize());
+			}
+
 
             if constexpr (std::is_same_v<T, int8_t>) {
                 assert(type == eInt8);
