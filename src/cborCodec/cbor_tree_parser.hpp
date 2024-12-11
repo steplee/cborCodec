@@ -340,6 +340,10 @@ namespace cbor {
 			return parseArray(p, std::move(v.expect<BeginArray>()));
 		}
 
+		if (v.is<Null>()) {
+			return Node::fromNull();
+		}
+
 		if (v.is<End>()) {
 			assert(false && "the End token cannot be returned as a Node");
 		}
