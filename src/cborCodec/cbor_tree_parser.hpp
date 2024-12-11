@@ -19,7 +19,7 @@
 namespace cbor {
 
 	enum class Kind {
-		Invalid, Byte, Int64, Uint64, F32, F64, Boolean, Text, Bytes, TypedArray, Map, Vec
+		Invalid, Byte, Int64, Uint64, F32, F64, Boolean, Text, Bytes, TypedArray, Map, Vec, Null
 	};
 
 
@@ -125,6 +125,11 @@ namespace cbor {
 			out.kind = Kind::TypedArray;
 			return out;
 		}
+		inline static Node fromNull() {
+			Node out;
+			out.kind = Kind::Null;
+			return out;
+		}
 
 
 
@@ -133,6 +138,7 @@ namespace cbor {
 		inline bool isVec() const { return kind == Kind::Vec; }
 		inline bool isText() const { return kind == Kind::Text; }
 		inline bool isTypedArray() const { return kind == Kind::TypedArray; }
+		inline bool isNull() const { return kind == Kind::Null; }
 
 		inline const TypedArrayBuffer& asTypedArray() const {
 			assert(isTypedArray());
@@ -333,6 +339,11 @@ namespace cbor {
 		if (v.is<BeginArray>()) {
 			return parseArray(p, std::move(v.expect<BeginArray>()));
 		}
+
+		if (v.is<End>()) {
+			assert(false && "the End token cannot be returned as a Node");
+		}
+
 		assert(false);
 	}
 
