@@ -200,7 +200,9 @@ namespace cbor {
         //
         template <class T> inline T accessAs(int i) const {
 
-            assert(endianness == 1 and "Only little-endian arrays are supported.");
+			if (endianness != 1) {
+				throw std::runtime_error("Only little-endian arrays are supported.");
+			}
 
             T t;
 
