@@ -471,6 +471,13 @@ namespace cbor {
                 byte sval = strm.nextByte();
                 return makeItem(sval);
             } else if (additionalInfo == 25) {
+                uint16_t v = strm.template nextValue<uint16_t>();
+				if (v == 0x00fc) {
+					return makeItem(static_cast<float>(-std::numeric_limits<float>::infinity()));
+				}
+				if (v == 0x007c) {
+					return makeItem(static_cast<float>(std::numeric_limits<float>::infinity()));
+				}
 				throw std::runtime_error("half floats are not supported.");
             } else if (additionalInfo == 26) {
                 float v = strm.template nextValue<float>();
