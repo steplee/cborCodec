@@ -410,10 +410,13 @@ namespace cbor {
 		else if (node.kind == Kind::Uint64) ce.push_value(node.scalar.uint64);
 		else if (node.kind == Kind::F32) ce.push_value(node.scalar.f32);
 		else if (node.kind == Kind::F64) ce.push_value(node.scalar.f64);
-		else if (node.kind == Kind::Boolean) ce.push_value(node.scalar.boolean);
 		else if (node.kind == Kind::Text) ce.push_value(node.text);
 		else if (node.kind == Kind::Bytes) ce.push_value(node.bytes);
 		else if (node.kind == Kind::TypedArray) ce.push_value(node.tab);
+		else if (node.kind == Kind::Boolean) {
+            if (node.scalar.boolean) ce.push_value(True{});
+            else ce.push_value(False{});
+        }
 
 		else {
 			throw std::runtime_error("impossible: failed to match node kind.");
