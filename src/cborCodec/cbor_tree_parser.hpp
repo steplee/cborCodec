@@ -141,7 +141,7 @@ namespace cbor {
 		inline bool isNull() const { return kind == Kind::Null; }
 
 		inline const TypedArrayBuffer& asTypedArray() const {
-			assert(isTypedArray());
+            if (not isTypedArray()) throw std::runtime_error("called asTypedArray() but !isTypedArray()");
 			return tab;
 		}
 
